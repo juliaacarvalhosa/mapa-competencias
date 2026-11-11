@@ -1,0 +1,17 @@
+.git/
+.venv/
+__pycache__/
+*.pyc
+.env*
+.pytest_cache/
+*.egg-info/
+staticfiles/
+.agents/
+.specify/
+specs/
+*.log
+coverage/
+htmlcov/
+build/
+dist/
+

@@ -1,0 +1,11 @@
+[project]
+name = "mapa-competencias"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["Django>=5.2,<5.3", "psycopg[binary]>=3.2,<4", "gunicorn>=23,<24"]
+[project.optional-dependencies]
+test = ["pytest>=8,<9", "pytest-django>=4.9,<5", "pytest-playwright>=0.6,<1"]
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.local"
+testpaths = ["tests"]
+
