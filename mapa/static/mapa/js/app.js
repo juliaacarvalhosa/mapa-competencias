@@ -7,6 +7,10 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   var crumbsEl = document.getElementById('crumbs');
   var overlay = document.getElementById('overlay');
   var panel = document.getElementById('panel');
+  var header = document.querySelector('.topbar');
+  new ResizeObserver(function(){
+    document.documentElement.style.setProperty('--header-height', header.getBoundingClientRect().height+'px');
+  }).observe(header);
 
   var LETTER_META = {
     A: {label:"Tecnologias e Processos Químicos", desc:"Rota tecnológica que vai da matéria-prima ao produto: pré-tratamento, processos químicos/biotecnológicos, catálise, digitalização e inteligência competitiva — cruzada com os setores de aplicação."},
@@ -25,6 +29,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   var RD_CAT_LABEL = {novo:'Novo', modificacao:'Modificação', reciclagem:'Reciclagem / Circularidade'};
 
   function render(){
+    document.body.classList.toggle('competence-page', state.view === 'competencia');
     if(state.view === 'home') renderHome();
     else if(state.view === 'section') renderSection(state.letter);
     else if(state.view === 'item') renderItem();
@@ -32,6 +37,56 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     else if(state.view === 'drill') renderDrill();
     else if(state.view === 'competencia') renderCompetenciaFull();
     renderCrumbs();
+    updateSidebar();
+  }
+
+  function updateSidebar(){
+    var nav = document.getElementById('sidebar-nav');
+    if(!nav.hasChildNodes()){
+      var home = document.createElement('button');
+      home.className = 'sidebar-link';
+      home.textContent = 'Início';
+      home.dataset.home = 'true';
+      home.addEventListener('click', goHome);
+      nav.appendChild(home);
+      [
+        {title:'Matérias-primas', kind:'material', items:DATA.materialsLeft},
+        {title:'Competências', kind:'competence', items:AREA_LETTERS.map(function(letter){ return {nome:letter+'. '+LETTER_META[letter].label, letter:letter}; })},
+        {title:'Aplicações', kind:'sector', items:DATA.sectorsRight}
+      ].forEach(function(group){
+        var section = document.createElement('details');
+        section.open = true;
+        section.className = 'sidebar-group';
+        var title = document.createElement('summary');
+        title.textContent = group.title;
+        section.appendChild(title);
+        var list = document.createElement('ul');
+        group.items.forEach(function(item, index){
+          var row = document.createElement('li');
+          var button = document.createElement('button');
+          button.className = 'sidebar-link';
+          button.textContent = item.nome;
+          button.dataset.kind = group.kind;
+          button.dataset.index = index;
+          if(item.letter) button.dataset.letter = item.letter;
+          button.addEventListener('click', function(){
+            if(item.letter) goSection(item.letter);
+            else goItem(group.kind, index);
+          });
+          row.appendChild(button);
+          list.appendChild(row);
+        });
+        section.appendChild(list);
+        nav.appendChild(section);
+      });
+    }
+    nav.querySelectorAll('button').forEach(function(button){
+      var active = button.dataset.home ? state.view === 'home' :
+        button.dataset.letter ? state.view === 'section' && state.letter === button.dataset.letter :
+        ['item','rdcategory','drill','competencia'].indexOf(state.view) !== -1 && state.itemKind === button.dataset.kind && state.itemIndex === Number(button.dataset.index);
+      if(active) button.setAttribute('aria-current', 'page');
+      else button.removeAttribute('aria-current');
+    });
   }
 
   function itemObj(){
@@ -59,18 +114,21 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       parts.push('<span class="sep">/</span>');
       parts.push('<span class="current">'+state.letter+'. '+LETTER_META[state.letter].label+'</span>');
     }
-    if(state.view === 'item' || state.view === 'rdcategory' || state.view === 'drill' || state.view === 'competencia'){
+    if(state.view === 'competencia'){
+      parts.push('<span class="sep">/</span><button data-nav="section">'+state.letter+'. '+LETTER_META[state.letter].label+'</button>');
+    }
+    if(state.view === 'item' || state.view === 'rdcategory' || state.view === 'drill'){
       var it = itemObj();
       var itIsCurrent = state.view === 'item';
       parts.push('<span class="sep">/</span>');
       parts.push(itIsCurrent ? ('<span class="current">'+it.nome+'</span>') : ('<button data-nav="item">'+it.nome+'</button>'));
     }
-    if(state.view === 'rdcategory' || (state.view==='competencia' && state.itemKind==='material')){
+    if(state.view === 'rdcategory'){
       var catLabel = RD_CAT_LABEL[state.category];
       parts.push('<span class="sep">/</span>');
       parts.push(state.view==='rdcategory' ? ('<span class="current">'+catLabel+'</span>') : ('<button data-nav="rdcategory">'+catLabel+'</button>'));
     }
-    if(state.view === 'drill' || (state.view==='competencia' && state.itemKind==='sector')){
+    if(state.view === 'drill'){
       var path = state.path || [];
       var crumbPath = (state.view==='competencia') ? path : path.slice(0, path.length-1);
       var steps = (state.view==='competencia') ? path : path;
@@ -92,6 +150,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       b.addEventListener('click', function(){
         var nav = b.getAttribute('data-nav');
         if(nav === 'home') goHome();
+        else if(nav === 'section') goSection(state.letter);
         else if(nav === 'item') goItem(state.itemKind, state.itemIndex);
         else if(nav === 'rdcategory') goRdCategory(state.category);
         else if(nav === 'drill'){
@@ -103,8 +162,14 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     });
   }
 
-  function goHome(){ closeOverlayIfOpen(); state.view='home'; render(); window.scrollTo({top:0}); }
-  function goSection(letter){ closeOverlayIfOpen(); state.view='section'; state.letter=letter; render(); window.scrollTo({top:0}); }
+  function goHome(){
+    if(state.view === 'competencia'){ window.location.assign(window.location.pathname); return; }
+    closeOverlayIfOpen(); state.view='home'; render(); window.scrollTo({top:0});
+  }
+  function goSection(letter){
+    if(state.view === 'competencia'){ window.location.assign('?eixo='+encodeURIComponent(letter)); return; }
+    closeOverlayIfOpen(); state.view='section'; state.letter=letter; render(); window.scrollTo({top:0});
+  }
   function goItem(kind, index){ closeOverlayIfOpen(); state.view='item'; state.itemKind=kind; state.itemIndex=index; state.path=[]; render(); window.scrollTo({top:0}); }
   function goRdCategory(cat){ closeOverlayIfOpen(); state.view='rdcategory'; state.category=cat; render(); window.scrollTo({top:0}); }
   function goDrillInto(key){ closeOverlayIfOpen(); state.view='drill'; state.path=(state.path||[]).concat([key]); render(); window.scrollTo({top:0}); }
@@ -114,7 +179,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     if(p.length === 0){ goItem(state.itemKind, state.itemIndex); return; }
     state.path = p; state.view='drill'; render(); window.scrollTo({top:0});
   }
-  function goCompetenciaFull(letter, code){ closeOverlayIfOpen(); state.view='competencia'; state.letter=letter; state.code=code; render(); window.scrollTo({top:0}); }
+  function goCompetenciaFull(letter, code){ window.location.assign('?competencia='+encodeURIComponent(code)); }
   function closeOverlayIfOpen(){ if(overlay && !overlay.hidden) closePanel(); }
 
   // ---------------- HOME ----------------
@@ -122,44 +187,10 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     var html = '';
     html += '<div class="view-head"><h2>Navegue pelo mapa de competências</h2>' +
       '<p>Três portas de entrada para o mesmo mapa: matérias-primas, competências técnicas e aplicações de mercado. Qualquer uma leva às outras duas pelas conexões de P&amp;D.</p></div>';
-    html += '<div class="home-columns">';
-
-    html += '<div class="home-col"><p class="home-col-title">Matérias-Primas</p>';
-    DATA.materialsLeft.forEach(function(m,i){
-      html += '<button class="home-item" data-open="material" data-index="'+i+'">'+m.nome+'</button>';
-    });
-    html += '</div>';
-
-    html += '<div class="home-col"><p class="home-col-title">Competências</p><div class="letters letters-stacked">';
-    AREA_LETTERS.forEach(function(L){
-      var count = Object.keys(DATA.competencias[L].subdivisions).length;
-      html += '<button class="letter-card" data-letter="'+L+'">' +
-        '<span class="glyph">'+L+'</span>' +
-        '<h3>'+LETTER_META[L].label+'</h3>' +
-        '<span class="meta">'+(count ? count+' subdivisões mapeadas' : 'pendente de detalhamento')+'</span>' +
-        '</button>';
-    });
-    html += '</div></div>';
-
-    html += '<div class="home-col"><p class="home-col-title">Aplicações</p>';
-    DATA.sectorsRight.forEach(function(s,i){
-      html += '<button class="home-item" data-open="sector" data-index="'+i+'">'+s.nome+'</button>';
-    });
-    html += '</div>';
-
-    html += '</div>';
+    html += '<p class="processos-note">Selecione um subtópico no menu para explorar as conexões de P&amp;D, as competências e os setores de aplicação.</p>';
     html += '<button class="team-home-btn" id="btnEquipe">&#128101; Ver equipe de pesquisa e contatos</button>';
     html += '<div class="footnote">Piloto de navegação construído a partir de <strong>Competencias_GPA-2026_09_23.pptx</strong> (estrutura visual) e <strong>Mapa_competencias_GPA-2026_09_09.xlsx</strong> (competências por subdivisão, aba “Organização equipes”). Nomes de pesquisadores responsáveis são reais; e-mail, telefone e associação às áreas de competência estão sendo preenchidos aos poucos — campos vazios aparecem como pendentes. Tamanhos de mercado citam a fonte e o nível de confiança de cada número; quando um dado não foi localizado com confiança, isso é declarado explicitamente em vez de estimado.</div>';
     appEl.innerHTML = html;
-    appEl.querySelectorAll('.letter-card').forEach(function(b){
-      b.addEventListener('click', function(){ goSection(b.getAttribute('data-letter')); });
-    });
-    appEl.querySelectorAll('.home-item[data-open="material"]').forEach(function(b){
-      b.addEventListener('click', function(){ openMaterialPanel(parseInt(b.getAttribute('data-index'),10)); });
-    });
-    appEl.querySelectorAll('.home-item[data-open="sector"]').forEach(function(b){
-      b.addEventListener('click', function(){ openSectorPanel(parseInt(b.getAttribute('data-index'),10)); });
-    });
     var btnEq = document.getElementById('btnEquipe');
     if(btnEq) btnEq.addEventListener('click', openTeamPanel);
   }
@@ -184,7 +215,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       html += '</div>';
 
       html += '<div>';
-      html += '<div class="processos-note">No mapa original, esta coluna central representa o eixo de <strong>Processos</strong> que conecta matérias-primas (à esquerda) aos setores de aplicação (à direita), passando pelas subdivisões técnicas A1–A13 abaixo.</div>';
+      html += '<div class="processos-note">O eixo de <strong>Processos</strong> conecta as matérias-primas aos setores de aplicação disponíveis no menu lateral, passando pelas subdivisões técnicas A1–A13 abaixo.</div>';
       html += '<div class="sub-grid">';
       subKeys.forEach(function(code){
         html += subCardHtml(letter, code, sec.subdivisions[code]);
@@ -299,39 +330,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closePanel(); });
 
   function openSubPanel(letter, code){
-    var sub = DATA.competencias[letter].subdivisions[code];
-    var teamsHtml = sub.teams.map(function(t){
-      var c = TEAM_COLOR[t] || '#999';
-      return '<span class="team-tag"><span class="team-dot" style="background:'+c+'"></span>'+t+'</span>';
-    }).join('');
-    var bulletsHtml = sub.bullets.map(function(b){ return '<li>'+escapeHtml(b)+'</li>'; }).join('');
-    var html = '';
-    html += '<div class="panel-top"><div><span class="panel-eyebrow">'+letter+'. '+LETTER_META[letter].label+'</span>' +
-      '<h3>'+code+'. '+sub.title+'</h3></div>' +
-      '<button class="panel-close" data-close>&times;</button></div>';
-    html += '<div class="panel-teams">'+(teamsHtml || '<span class="team-tag">Equipe não mapeada na planilha</span>')+'</div>';
-    html += '<div class="section-block"><h4>Competências correlacionadas (planilha de referência)</h4>';
-    html += sub.bullets.length ? ('<ul class="bullets">'+bulletsHtml+'</ul>') :
-      '<p class="plain-p">Nenhuma competência detalhada foi localizada para esta subdivisão na planilha "Organização equipes".</p>';
-    html += '</div>';
-    var revSectors = DATA.subToSectors[code] || [];
-    if(revSectors.length){
-      html += '<div class="section-block"><h4>Setores com potencial de aplicação (P&amp;D)</h4>';
-      revSectors.forEach(function(it){
-        html += connCardHtml(it.setor, it.racional, it.aderencia, 'data-goto-sector="'+it.setor+'"');
-      });
-      html += '</div>';
-    }
-    html += '<div class="cta-row"><button class="btn btn-primary" data-sub-researchers="'+letter+code+'">Contato do(s) pesquisador(es) responsável(eis)</button></div>';
-    openPanel(html);
-    panel.querySelector('[data-close]').addEventListener('click', closePanel);
-    bindConnButtons();
-    var rBtn = panel.querySelector('[data-sub-researchers]');
-    if(rBtn){
-      rBtn.addEventListener('click', function(){
-        openSubResearchersPanel(letter, code, sub.title);
-      });
-    }
+    goCompetenciaFull(letter, code);
   }
 
   function aderBadge(level){
@@ -341,9 +340,9 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   }
 
   function connCardHtml(titleLine, racional, aderencia, dataAttr){
-    return '<div class="market-card conn-card" '+dataAttr+'>' +
+    return '<button type="button" class="market-card conn-card" '+dataAttr+'>' +
       '<div class="mk-top"><span class="mk-label">'+titleLine+'</span>'+aderBadge(aderencia)+'</div>' +
-      '<p class="mk-src" style="font-style:normal;font-size:12.6px;line-height:1.5">'+racional+'</p></div>';
+      '<p class="mk-src" style="font-style:normal;font-size:12.6px;line-height:1.5">'+racional+'</p></button>';
   }
 
   function subTitleByCode(code){
@@ -653,35 +652,82 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   function renderCompetenciaFull(){
     var letter = state.letter, code = state.code;
     var sub = DATA.competencias[letter].subdivisions[code];
-    var teamsHtml = sub.teams.map(function(t){
-      var c = TEAM_COLOR[t] || '#999';
-      return '<span class="team-tag"><span class="team-dot" style="background:'+c+'"></span>'+t+'</span>';
+    var relatedCompetences = (DATA.relatedCompetences || {})[code] || [];
+    var bulletsHtml = sub.bullets.map(function(b){
+      var cardTitle = (letter === 'A' && code === 'A5' && b.indexOf('Processos eletroquímicos:') === 0)
+        ? 'Eletroquímica em alta e baixa temperatura'
+        : (letter === 'A' && code === 'A5' && b.indexOf('Plasma —') === 0 ? 'Plasma' :
+          ((letter === 'A' && (code === 'A3' || code === 'A13')) || (letter === 'B' && code === 'B3') ? b : null));
+      var summary = (DATA.competenceSummaries || {})[b] || b;
+      var keepOriginalTitle = (letter === 'A' && (code === 'A3' || code === 'A13')) || (letter === 'B' && code === 'B3');
+      var subtitle = keepOriginalTitle ? summary : (cardTitle ? b : summary);
+      return '<li class="competence-row"><div class="competence-description">'+
+        '<h3>'+escapeHtml(cardTitle || summary)+'</h3>'+
+        (((cardTitle && !keepOriginalTitle) || summary !== b) ? '<p class="competence-subtitle">'+escapeHtml(subtitle)+'</p>' : '')+
+        '</div></li>';
     }).join('');
-    var bulletsHtml = sub.bullets.map(function(b){ return '<li>'+escapeHtml(b)+'</li>'; }).join('');
+    var relatedA3Cards = relatedCompetences.filter(function(item){ return item.displayTitle; }).map(function(item){
+      return '<li class="competence-row related-source-card" data-related-comp="'+item.codigo+'"><div class="competence-description">'+
+        '<h3>'+escapeHtml(item.displayTitle)+'</h3><p class="competence-subtitle">'+escapeHtml(item.racional)+'</p></div></li>';
+    }).join('');
+    if(code === 'B3') bulletsHtml += relatedA3Cards;
     var html = '';
     html += '<div class="view-head">';
-    html += '<button class="back-link" data-nav="rdcat2">&larr; Voltar</button>';
+    html += '<button class="back-link" data-nav="rdcat2">&larr; Voltar às competências do eixo '+letter+'</button>';
     html += '<span class="panel-eyebrow">Competência &middot; Eixo '+letter+' — '+LETTER_META[letter].label+'</span>';
     html += '<h2>'+code+'. '+sub.title+'</h2>';
     html += '</div>';
-    html += '<div class="panel-teams">'+(teamsHtml || '<span class="team-tag">Equipe não mapeada na planilha</span>')+'</div>';
-    html += '<div class="section-block"><h4>Competências correlacionadas (planilha de referência)</h4>';
-    html += sub.bullets.length ? ('<ul class="bullets">'+bulletsHtml+'</ul>') :
+    html += '<div class="section-block"><h4>Competências relacionadas</h4>';
+    html += '<p class="competence-note">Cada card reúne uma competência relacionada e sua descrição.</p>';
+    if(code === 'B3' && relatedA3Cards){
+      html += '<p class="related-inline-heading">Competências correlatas de A3 — Biotecnológicos</p>';
+    }
+    html += sub.bullets.length ? ('<ul class="competence-list">'+bulletsHtml+'</ul>') :
       '<p class="plain-p">Nenhuma competência detalhada foi localizada para esta subdivisão.</p>';
     html += '</div>';
+    var seenSectors = {};
+    var revSectors = (DATA.subToSectors[code] || []).filter(function(it){
+      if(seenSectors[it.setor]) return false;
+      seenSectors[it.setor] = true;
+      return true;
+    });
+    if(revSectors.length){
+      html += '<div class="section-block"><h4>Setores com potencial de aplicação</h4>';
+      revSectors.forEach(function(it){
+        html += connCardHtml(it.setor, it.racional, it.aderencia, 'data-goto-sector="'+it.setor+'"');
+      });
+      html += '</div>';
+    }
+    if(relatedCompetences.length && code !== 'B3'){
+      html += '<div class="section-block"><h4>Competências correlatas</h4>';
+      html += '<p class="competence-note">Áreas do mapa que podem contribuir para esta competência.</p>';
+      relatedCompetences.forEach(function(item){
+        html += connCardHtml(item.displayTitle || (item.codigo+' — '+item.titulo), item.racional, item.aderencia, 'data-related-comp="'+item.codigo+'"');
+      });
+      html += '</div>';
+    }
     html += '<div class="cta-row"><button class="btn btn-primary" id="btnCompResearchers">Contato do(s) pesquisador(es) responsável(eis)</button></div>';
     appEl.innerHTML = html;
     appEl.querySelector('[data-nav="rdcat2"]').addEventListener('click', function(){
-      if(state.itemKind === 'sector' && state.path && state.path.length){
-        closeOverlayIfOpen(); state.view='drill'; render(); window.scrollTo({top:0});
-      } else {
-        goRdCategory(state.category);
-      }
+      goSection(letter);
+    });
+    appEl.querySelectorAll('[data-goto-sector]').forEach(function(button){
+      button.addEventListener('click', function(){
+        var index = DATA.sectorsRight.findIndex(function(item){return item.nome === button.getAttribute('data-goto-sector');});
+        if(index !== -1) window.location.assign('?setor='+index);
+      });
+    });
+    appEl.querySelectorAll('[data-related-comp]').forEach(function(button){
+      button.addEventListener('click', function(){
+        var relatedCode = button.getAttribute('data-related-comp');
+        goCompetenciaFull(relatedCode[0], relatedCode);
+      });
     });
     document.getElementById('btnCompResearchers').addEventListener('click', function(){
       openSubResearchersPanel(letter, code, sub.title);
     });
   }
+
 
   function openStagePanel(letter, index){
     var stages = letter === 'B' ? DATA.bContinuum : DATA.cFunnel;
@@ -700,5 +746,15 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     });
   }
 
+  var params = new URLSearchParams(window.location.search);
+  var requestedCode = params.get('competencia');
+  if(requestedCode && DATA.competencias[requestedCode[0]] && DATA.competencias[requestedCode[0]].subdivisions[requestedCode]){
+    state.view = 'competencia'; state.letter = requestedCode[0]; state.code = requestedCode;
+    document.title = requestedCode+' — '+subTitleByCode(requestedCode)+' | Firjan SENAI';
+  } else if(AREA_LETTERS.indexOf(params.get('eixo')) !== -1){
+    state.view = 'section'; state.letter = params.get('eixo');
+  } else if(params.has('setor') && /^\d+$/.test(params.get('setor')) && DATA.sectorsRight[Number(params.get('setor'))]){
+    state.view = 'item'; state.itemKind = 'sector'; state.itemIndex = Number(params.get('setor')); state.path = [];
+  }
   render();
 })();
