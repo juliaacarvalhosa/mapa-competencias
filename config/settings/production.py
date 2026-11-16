@@ -3,6 +3,7 @@ from django.core.exceptions import ImproperlyConfigured
 if SECRET_KEY == "local-development-only":
     raise ImproperlyConfigured("Configure DJANGO_SECRET_KEY para produção.")
 SECURE_SSL_REDIRECT = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_HSTS_SECONDS = 31536000
