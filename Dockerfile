@@ -4,8 +4,11 @@ WORKDIR /app
 COPY pyproject.toml .
 RUN python -c "import tomllib, subprocess; subprocess.check_call(['pip', 'install', '--no-cache-dir', *tomllib.load(open('pyproject.toml', 'rb'))['project']['dependencies']])"
 COPY . .
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 RUN useradd --create-home appuser
 USER appuser
 EXPOSE 8000
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000"]
 

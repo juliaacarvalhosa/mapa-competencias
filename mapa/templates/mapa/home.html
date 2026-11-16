@@ -30,10 +30,12 @@
 </div>
 
 <div class="overlay" id="overlay" hidden>
-  <div class="panel" id="panel"></div>
+  <div class="panel" id="panel" role="dialog" aria-modal="true" aria-label="Detalhes do mapa"></div>
 </div>
 
 {{ pilot_data|json_script:"pilot-data" }}
+{{ feedback_items|json_script:"feedback-data" }}
+<div hidden>{% csrf_token %}</div>
 
 <script src="{% static 'mapa/js/app.js' %}?v={{ script_version }}" defer></script></body>
 </html>

@@ -3,11 +3,14 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
 (function(){
   "use strict";
   var DATA = window.__DATA__;
+  var feedbackNode = document.getElementById('feedback-data');
+  var FEEDBACK = JSON.parse(feedbackNode && feedbackNode.textContent ? feedbackNode.textContent : '[]');
   var appEl = document.getElementById('app');
   var crumbsEl = document.getElementById('crumbs');
   var overlay = document.getElementById('overlay');
   var panel = document.getElementById('panel');
   var header = document.querySelector('.topbar');
+  var lastFocusedElement = null;
   new ResizeObserver(function(){
     document.documentElement.style.setProperty('--header-height', header.getBoundingClientRect().height+'px');
   }).observe(header);
@@ -195,6 +198,45 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     if(btnEq) btnEq.addEventListener('click', openTeamPanel);
   }
 
+  // Replaces the original sparse landing view with three clear entry points.
+  function renderHome(){
+    var html = '';
+    html += '<div class="view-head home-hero"><span class="panel-eyebrow">Mapa de compet&ecirc;ncias &middot; Firjan SENAI</span><h2>Encontre a compet&ecirc;ncia certa para o seu desafio</h2>' +
+      '<p>Explore o mapa por mat&eacute;ria-prima, compet&ecirc;ncia t&eacute;cnica ou setor de aplica&ccedil;&atilde;o. Em cada caminho, voc&ecirc; encontra conex&otilde;es de P&amp;D, exemplos de produtos e a equipe relacionada.</p></div>';
+    html += '<div class="feedback-callout"><div><span class="feedback-callout-label">Ajude a melhorar o mapa</span><strong>Encontrou algo que falta, sobra ou precisa ser corrigido?</strong><span>Deixe sua sugest&atilde;o agora. Depois, voc&ecirc; tamb&eacute;m poder&aacute; opinar em cada compet&ecirc;ncia.</span></div><div class="feedback-callout-actions"><button class="feedback-callout-button" id="btnHomeFeedback" type="button">Dar opini&atilde;o agora <span aria-hidden="true">&rarr;</span></button><button class="feedback-view-button" id="btnViewFeedback" type="button">Ver opini&otilde;es salvas</button></div></div>';
+    html += '<div class="home-start"><div><span class="home-start-kicker">Comece por onde fizer mais sentido</span><h3>Tr&ecirc;s portas de entrada para o mesmo mapa</h3></div><span class="home-start-hint">Voc&ecirc; pode mudar de caminho a qualquer momento.</span></div>';
+    html += '<div class="home-entry-grid">';
+    html += homeEntryHtml('material', 'Mat&eacute;rias-primas', 'Parta do insumo e descubra rotas de transforma&ccedil;&atilde;o, compet&ecirc;ncias e aplica&ccedil;&otilde;es.', DATA.materialsLeft.length, 'insumos dispon&iacute;veis');
+    html += homeEntryHtml('competence', 'Compet&ecirc;ncias t&eacute;cnicas', 'Veja as capacidades organizadas nos cinco eixos do centro de tecnologia.', AREA_LETTERS.length, 'eixos para explorar');
+    html += homeEntryHtml('sector', 'Setores de aplica&ccedil;&atilde;o', 'Encontre caminhos de P&amp;D conectados a mercados, produtos e desafios reais.', DATA.sectorsRight.length, 'setores mapeados');
+    html += '</div>';
+    html += '<div class="home-secondary"><div class="processos-note"><strong>Como navegar:</strong> abra uma entrada, selecione um card e use os links de conex&otilde;es para atravessar o mapa sem perder o contexto.</div>';
+    html += '<button class="team-home-btn" id="btnEquipe">&#128101; Ver equipe de pesquisa e contatos</button></div>';
+    html += '<div class="footnote">Piloto de navega&ccedil;&atilde;o constru&iacute;do a partir dos materiais de refer&ecirc;ncia do projeto. Campos ainda n&atilde;o preenchidos aparecem como pendentes.</div>';
+    appEl.innerHTML = html;
+    appEl.querySelectorAll('[data-home-entry]').forEach(function(button){
+      button.addEventListener('click', function(){
+        var kind = button.getAttribute('data-home-entry');
+        if(kind === 'competence') goSection('A');
+        else goItem(kind, 0);
+      });
+    });
+    var btnEq = document.getElementById('btnEquipe');
+    if(btnEq) btnEq.addEventListener('click', openTeamPanel);
+    var btnHomeFeedback = document.getElementById('btnHomeFeedback');
+    if(btnHomeFeedback) btnHomeFeedback.addEventListener('click', function(){ openFeedbackPanel('mapa', 'geral', 'Mapa de Competencias Firjan SENAI'); });
+    var btnViewFeedback = document.getElementById('btnViewFeedback');
+    if(btnViewFeedback) btnViewFeedback.addEventListener('click', openSavedOpinionsPanel);
+  }
+
+  function homeEntryHtml(kind, title, description, count, countLabel){
+    var icon = kind === 'material' ? '01' : (kind === 'competence' ? '02' : '03');
+    return '<button class="home-entry" data-home-entry="'+kind+'">' +
+      '<span class="home-entry-top"><span class="home-entry-index">'+icon+'</span><span class="home-entry-arrow" aria-hidden="true">&#8599;</span></span>' +
+      '<span class="home-entry-title">'+title+'</span><span class="home-entry-description">'+description+'</span>' +
+      '<span class="home-entry-meta"><strong>'+count+'</strong> '+countLabel+'</span></button>';
+  }
+
   // ---------------- SECTION ----------------
   function renderSection(letter){
     var sec = DATA.competencias[letter];
@@ -261,6 +303,14 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
         openSubPanel(b.getAttribute('data-letter'), b.getAttribute('data-code'));
       });
     });
+    appEl.querySelectorAll('[data-card-feedback]').forEach(function(b){
+      b.addEventListener('click', function(event){
+        event.stopPropagation();
+        var code = b.getAttribute('data-card-feedback');
+        var sub = DATA.competencias[code[0]].subdivisions[code];
+        openFeedbackPanel('competencia', code, code+' · '+sub.title);
+      });
+    });
     appEl.querySelectorAll('[data-open="sector"]').forEach(function(b){
       b.addEventListener('click', function(){ openSectorPanel(parseInt(b.getAttribute('data-index'),10)); });
     });
@@ -308,23 +358,86 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     var dots = sub.teams.slice(0,5).map(function(t){
       return '<span class="team-dot" style="background:'+(TEAM_COLOR[t]||'#999')+'" title="'+t+'"></span>';
     }).join('');
-    return '<button class="sub-card" data-letter="'+letter+'" data-code="'+code+'">' +
+    return '<div class="sub-card-wrap"><button class="sub-card" data-letter="'+letter+'" data-code="'+code+'">' +
       '<span class="sub-code">'+code+'</span>' +
       '<span class="sub-title">'+sub.title+'</span>' +
       '<span class="sub-foot">'+dots+'<span class="sub-count">'+sub.bullets.length+' competências</span></span>' +
-      '</button>';
+      '<span class="sub-action">Abrir detalhes <span aria-hidden="true">&rarr;</span></span></button><button type="button" class="sub-feedback" data-card-feedback="'+code+'">Dar opini&atilde;o</button></div>';
   }
 
   // ---------------- PANELS ----------------
   function openPanel(innerHtml){
+    lastFocusedElement = document.activeElement;
     panel.innerHTML = innerHtml;
     overlay.hidden = false;
     document.body.style.overflow = 'hidden';
     panel.scrollTop = 0;
+    var firstControl = panel.querySelector('button, [href], input, select, textarea');
+    if(firstControl && typeof firstControl.focus === 'function') firstControl.focus();
+  }
+
+  function feedbackListHtml(itemType, itemKey){
+    var entries = FEEDBACK.filter(function(item){ return item.item_type === itemType && item.item_key === itemKey; }).slice(0,8);
+    if(!entries.length) return '<p class="feedback-empty">Ainda n&atilde;o h&aacute; contribui&ccedil;&otilde;es para este item.</p>';
+    return entries.map(function(item){
+      return '<div class="feedback-entry"><strong>'+escapeHtml(item.name)+'</strong><span class="feedback-date">'+escapeHtml(item.created_at)+'</span>' +
+        (item.add ? '<p><b>Acrescentaria:</b> '+escapeHtml(item.add)+'</p>' : '') +
+        (item.remove ? '<p><b>Retiraria:</b> '+escapeHtml(item.remove)+'</p>' : '') +
+        (item.comments ? '<p>'+escapeHtml(item.comments)+'</p>' : '') + '</div>';
+    }).join('');
+  }
+
+  function openFeedbackPanel(itemType, itemKey, itemTitle){
+    var html = '<div class="panel-top"><div><span class="panel-eyebrow">Contribua com o mapa</span><h3>Dar opini&atilde;o</h3></div><button class="panel-close" data-close aria-label="Fechar">&times;</button></div>';
+    html += '<p class="plain-p feedback-target">'+escapeHtml(itemTitle)+'</p>';
+    html += '<form id="main-feedback-form" class="main-feedback-form"><input type="hidden" name="item_type" value="'+escapeHtml(itemType)+'"><input type="hidden" name="item_key" value="'+escapeHtml(itemKey)+'"><input type="hidden" name="item_title" value="'+escapeHtml(itemTitle)+'">';
+    html += '<label>Seu nome <span class="required-label">(obrigat&oacute;rio)</span><input name="name" maxlength="120" required placeholder="Como devemos identificar sua contribui&ccedil;&atilde;o?"></label>';
+    html += '<label>O que voc&ecirc; acrescentaria?<textarea name="add" rows="3" placeholder="Uma compet&ecirc;ncia, exemplo ou informa&ccedil;&atilde;o que est&aacute; faltando"></textarea></label>';
+    html += '<label>O que voc&ecirc; retiraria ou corrigiria?<textarea name="remove" rows="3" placeholder="Algo repetido, desatualizado ou fora de contexto"></textarea></label>';
+    html += '<label>Coment&aacute;rios gerais<textarea name="comments" rows="3" placeholder="Contexto ou justificativa"></textarea></label><p class="feedback-status" role="status"></p><button class="btn btn-primary" type="submit">Salvar contribui&ccedil;&atilde;o</button></form>';
+    html += '<div class="feedback-history"><h4>Contribui&ccedil;&otilde;es recentes</h4><div class="feedback-history-list">'+feedbackListHtml(itemType,itemKey)+'</div></div>';
+    openPanel(html);
+    overlay.classList.add('feedback-overlay');
+    panel.querySelector('[data-close]').addEventListener('click', closePanel);
+    var form = panel.querySelector('#main-feedback-form');
+    form.addEventListener('submit', function(event){
+      event.preventDefault();
+      var payload = {}; new FormData(form).forEach(function(value,key){ payload[key] = value; });
+      var status = form.querySelector('.feedback-status'); status.textContent = 'Salvando...';
+      fetch('/alternativa_ux/feedback/', {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}, body:JSON.stringify(payload)})
+        .then(function(response){ return response.json().then(function(body){ if(!response.ok) throw new Error(body.error || 'N&atilde;o foi poss&iacute;vel salvar.'); return body; }); })
+        .then(function(body){ FEEDBACK.unshift({item_type:payload.item_type,item_key:payload.item_key,item_title:payload.item_title,name:payload.name,add:payload.add,remove:payload.remove,comments:payload.comments,created_at:body.created_at}); status.textContent='Contribui&ccedil;&atilde;o salva. Obrigado por ajudar a melhorar o mapa.'; panel.querySelector('.feedback-history-list').innerHTML=feedbackListHtml(itemType,itemKey); form.elements.add.value=''; form.elements.remove.value=''; form.elements.comments.value=''; })
+        .catch(function(error){ status.textContent=error.message; });
+    });
+  }
+
+  function allFeedbackHtml(){
+    if(!FEEDBACK.length) return '<p class="feedback-empty">Ainda n&atilde;o h&aacute; opini&otilde;es salvas.</p>';
+    return FEEDBACK.map(function(item){
+      return '<div class="feedback-entry"><strong>'+escapeHtml(item.item_title)+'</strong><span class="feedback-date">'+escapeHtml(item.name)+' · '+escapeHtml(item.created_at)+'</span>' +
+        (item.add ? '<p><b>Acrescentaria:</b> '+escapeHtml(item.add)+'</p>' : '') +
+        (item.remove ? '<p><b>Retiraria:</b> '+escapeHtml(item.remove)+'</p>' : '') +
+        (item.comments ? '<p>'+escapeHtml(item.comments)+'</p>' : '') + '</div>';
+    }).join('');
+  }
+
+  function openSavedOpinionsPanel(){
+    var html = '<div class="panel-top"><div><span class="panel-eyebrow">Contribui&ccedil;&otilde;es da comunidade</span><h3>Opini&otilde;es salvas</h3></div><button class="panel-close" data-close aria-label="Fechar">&times;</button></div>';
+    html += '<p class="plain-p">Veja as sugest&otilde;es registradas por outras pessoas para orientar a revis&atilde;o do mapa.</p><div class="feedback-history feedback-all-history">'+allFeedbackHtml()+'</div>';
+    openPanel(html);
+    overlay.classList.add('feedback-overlay');
+    panel.querySelector('[data-close]').addEventListener('click', closePanel);
+  }
+
+  function getCookie(name){
+    var prefix = name+'=';
+    return document.cookie.split(';').map(function(value){ return value.trim(); }).filter(function(value){ return value.indexOf(prefix) === 0; }).map(function(value){ return decodeURIComponent(value.slice(prefix.length)); })[0] || '';
   }
   function closePanel(){
     overlay.hidden = true;
+    overlay.classList.remove('feedback-overlay');
     document.body.style.overflow = '';
+    if(lastFocusedElement && typeof lastFocusedElement.focus === 'function') lastFocusedElement.focus();
   }
   overlay.addEventListener('click', function(e){ if(e.target === overlay) closePanel(); });
   document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closePanel(); });
@@ -540,8 +653,12 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       html += '<div class="section-block"><h4>Exemplos de grandes empresas do setor</h4><div class="company-grid">' +
         it.empresas.map(function(e){return '<div class="company-card">'+e+'</div>';}).join('') + '</div></div>';
     }
+    html += '<div class="cta-row"><button class="btn btn-ghost" id="btnItemFeedback">Dar opini&atilde;o sobre este item</button></div>';
     appEl.innerHTML = html;
     appEl.querySelector('[data-nav="home2"]').addEventListener('click', goHome);
+    document.getElementById('btnItemFeedback').addEventListener('click', function(){
+      openFeedbackPanel(isSector ? 'setor' : 'material', it.nome, it.nome);
+    });
     if(isSector){
       appEl.querySelectorAll('[data-rd-cat]').forEach(function(b){
         b.addEventListener('click', function(){ goDrillInto(b.getAttribute('data-rd-cat')); });
@@ -706,7 +823,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       });
       html += '</div>';
     }
-    html += '<div class="cta-row"><button class="btn btn-primary" id="btnCompResearchers">Contato do(s) pesquisador(es) responsável(eis)</button></div>';
+    html += '<div class="cta-row"><button class="btn btn-primary" id="btnCompResearchers">Contato do(s) pesquisador(es) responsável(eis)</button><button class="btn btn-ghost" id="btnCompFeedback">Dar opinião sobre esta competência</button></div>';
     appEl.innerHTML = html;
     appEl.querySelector('[data-nav="rdcat2"]').addEventListener('click', function(){
       goSection(letter);
@@ -725,6 +842,9 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     });
     document.getElementById('btnCompResearchers').addEventListener('click', function(){
       openSubResearchersPanel(letter, code, sub.title);
+    });
+    document.getElementById('btnCompFeedback').addEventListener('click', function(){
+      openFeedbackPanel('competencia', code, code+' · '+sub.title);
     });
   }
 

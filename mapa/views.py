@@ -1,7 +1,50 @@
 import json
 from hashlib import sha256
 from django.conf import settings
+from django.http import JsonResponse
 from django.shortcuts import render
+from django.views.decorators.http import require_POST
+from .models import Feedback
+
+
+def feedback_payload():
+    items = list(Feedback.objects.values(
+        'item_type', 'item_key', 'item_title', 'name', 'add', 'remove', 'comments', 'created_at'
+    )[:100])
+    for item in items:
+        item['created_at'] = item['created_at'].strftime('%d/%m/%Y %H:%M')
+    return items
+
+
+def alternative_ux(request):
+    with (settings.BASE_DIR / 'data' / 'pilot_map.json').open(encoding='utf-8') as source:
+        data = json.load(source)
+    return render(request, 'mapa/alternative_ux.html', {'pilot_data': data, 'feedback_items': feedback_payload()})
+
+
+@require_POST
+def submit_feedback(request):
+    try:
+        payload = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Formato inválido.'}, status=400)
+    required = ('item_type', 'item_key', 'item_title', 'name')
+    if any(not str(payload.get(field, '')).strip() for field in required):
+        return JsonResponse({'error': 'Preencha o nome e o item avaliado.'}, status=400)
+    if payload.get('item_type') not in dict(Feedback.ITEM_TYPES):
+        return JsonResponse({'error': 'Tipo de item inválido.'}, status=400)
+    if not any(str(payload.get(field, '')).strip() for field in ('add', 'remove', 'comments')):
+        return JsonResponse({'error': 'Escreva pelo menos uma sugestão ou comentário.'}, status=400)
+    feedback = Feedback.objects.create(
+        item_type=str(payload['item_type']).strip()[:20],
+        item_key=str(payload['item_key']).strip()[:160],
+        item_title=str(payload['item_title']).strip()[:255],
+        name=str(payload['name']).strip()[:120],
+        add=str(payload.get('add', '')).strip(),
+        remove=str(payload.get('remove', '')).strip(),
+        comments=str(payload.get('comments', '')).strip(),
+    )
+    return JsonResponse({'id': feedback.id, 'created_at': feedback.created_at.strftime('%d/%m/%Y %H:%M')})
 
 
 def home(request):
@@ -105,6 +148,7 @@ def home(request):
     stylesheet_version = sha256(stylesheet.read_bytes()).hexdigest()[:12]
     return render(request, 'mapa/home.html', {
         'pilot_data': data,
+        'feedback_items': feedback_payload(),
         'stylesheet_version': stylesheet_version,
         'script_version': sha256((settings.BASE_DIR / 'mapa' / 'static' / 'mapa' / 'js' / 'app.js').read_bytes()).hexdigest()[:12],
     })

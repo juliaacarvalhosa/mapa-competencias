@@ -1,0 +1,69 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Encontre uma competência | Firjan SENAI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'mapa/css/alternative_ux.css' %}">
+</head>
+<body>
+  <header class="alt-header">
+    <div class="alt-header-inner">
+      <a class="alt-brand" href="/">Firjan SENAI <span>Mapa de Competências</span></a>
+      <a class="alt-back" href="/">Voltar ao mapa completo</a>
+    </div>
+  </header>
+
+  <main class="alt-shell">
+    <section class="alt-hero" aria-labelledby="page-title">
+      <p class="eyebrow">Uma forma mais direta de começar</p>
+      <h1 id="page-title">O que você precisa desenvolver?</h1>
+      <p class="hero-copy">Descreva um desafio, insumo ou setor. A busca mostra caminhos possíveis sem exigir que você conheça a estrutura do mapa.</p>
+      <label class="search-box"><span aria-hidden="true">⌕</span><input id="alt-search" type="search" placeholder="Ex.: tratamento de efluentes, biomassa, saúde..." autocomplete="off"><kbd>/</kbd></label>
+      <p class="search-hint"><strong>Atalho:</strong> pressione <kbd>/</kbd> para buscar</p>
+    </section>
+
+    <section class="intent-section" aria-labelledby="intent-title">
+      <div class="section-heading"><div><p class="eyebrow">Escolha um ponto de partida</p><h2 id="intent-title">Comece pela sua pergunta</h2></div><span class="section-note">Você pode refinar depois</span></div>
+      <div class="intent-grid">
+        <button class="intent-card" data-intent="desafio"><span class="intent-number">01</span><strong>Tenho um desafio técnico</strong><span>Encontre competências que podem ajudar a resolver um problema.</span></button>
+        <button class="intent-card" data-intent="materia"><span class="intent-number">02</span><strong>Tenho uma matéria-prima</strong><span>Descubra rotas, produtos e aplicações possíveis para um insumo.</span></button>
+        <button class="intent-card" data-intent="setor"><span class="intent-number">03</span><strong>Atuo em um setor</strong><span>Veja como o centro pode apoiar uma cadeia ou mercado específico.</span></button>
+      </div>
+    </section>
+
+    <section class="results-section" aria-live="polite" aria-labelledby="results-title">
+      <div class="section-heading"><div><p class="eyebrow">Resultados relacionados</p><h2 id="results-title">Sugestões para você explorar</h2></div><span id="result-count" class="result-count"></span></div>
+      <div id="results" class="results-grid"></div>
+    </section>
+  </main>
+
+  <div class="feedback-modal" id="feedback-modal" hidden>
+    <div class="feedback-dialog" role="dialog" aria-modal="true" aria-labelledby="feedback-title">
+      <button class="feedback-close" id="feedback-close" type="button" aria-label="Fechar">&times;</button>
+      <p class="eyebrow">Contribua com o mapa</p>
+      <h2 id="feedback-title">Dar opinião</h2>
+      <p class="feedback-item" id="feedback-item"></p>
+      <form id="feedback-form">
+        {% csrf_token %}
+        <input type="hidden" name="item_type"><input type="hidden" name="item_key"><input type="hidden" name="item_title">
+        <label>Seu nome<input name="name" maxlength="120" required placeholder="Como devemos identificar sua contribuição?"></label>
+        <label>O que você acrescentaria?<textarea name="add" rows="3" placeholder="Uma competência, exemplo, setor ou informação que está faltando"></textarea></label>
+        <label>O que você retiraria ou corrigiria?<textarea name="remove" rows="3" placeholder="Algo repetido, desatualizado ou fora de contexto"></textarea></label>
+        <label>Comentários gerais<textarea name="comments" rows="3" placeholder="Contexto, justificativa ou outra observação"></textarea></label>
+        <p class="form-status" id="form-status" role="status"></p>
+        <button class="submit-feedback" type="submit">Salvar contribuição</button>
+      </form>
+      <div class="previous-feedback"><h3>Contribuições recentes</h3><div id="feedback-list"></div></div>
+    </div>
+  </div>
+
+  {{ pilot_data|json_script:"pilot-data" }}
+  {{ feedback_items|json_script:"feedback-data" }}
+  <script src="{% static 'mapa/js/alternative_ux.js' %}"></script>
+</body>
+</html>
