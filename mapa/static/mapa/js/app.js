@@ -41,6 +41,47 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     else if(state.view === 'competencia') renderCompetenciaFull();
     renderCrumbs();
     updateSidebar();
+    updateTopMenu();
+  }
+
+  function updateTopMenu(){
+    var menuItems = {
+      material: DATA.materialsLeft.map(function(item, index){ return {label:item.nome, kind:'material', index:index}; }),
+      competence: AREA_LETTERS.map(function(letter){ return {label:letter+'. '+LETTER_META[letter].label, kind:'competence', letter:letter}; }),
+      sector: DATA.sectorsRight.map(function(item, index){ return {label:item.nome, kind:'sector', index:index}; })
+    };
+    document.querySelectorAll('[data-top-menu-group]').forEach(function(group){
+      var kind = group.getAttribute('data-top-menu-group');
+      var dropdown = group.querySelector('.top-menu-dropdown');
+      if(dropdown && dropdown.dataset.ready !== 'true'){
+        (menuItems[kind] || []).forEach(function(item){
+          var option = document.createElement('button');
+          option.type = 'button';
+          option.className = 'top-menu-option';
+          option.setAttribute('role', 'menuitem');
+          option.textContent = item.label;
+          option.addEventListener('click', function(){
+            if(item.letter) goSection(item.letter);
+            else goItem(item.kind, item.index);
+          });
+          dropdown.appendChild(option);
+        });
+        dropdown.dataset.ready = 'true';
+      }
+    });
+    document.querySelectorAll('[data-top-menu]').forEach(function(button){
+      var kind = button.getAttribute('data-top-menu');
+      var active = (kind === 'competence' && (state.view === 'section' || state.view === 'competencia')) ||
+        (kind === state.itemKind && ['item','rdcategory','drill'].indexOf(state.view) !== -1);
+      if(active) button.setAttribute('aria-current', 'page');
+      else button.removeAttribute('aria-current');
+      if(button.dataset.bound === 'true') return;
+      button.dataset.bound = 'true';
+      button.addEventListener('click', function(){
+        if(kind === 'competence') goSection('A');
+        else goItem(kind, 0);
+      });
+    });
   }
 
   function updateSidebar(){
@@ -201,7 +242,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   // Replaces the original sparse landing view with three clear entry points.
   function renderHome(){
     var html = '';
-    html += '<div class="view-head home-hero"><span class="panel-eyebrow">Mapa de compet&ecirc;ncias &middot; Firjan SENAI</span><h2>Encontre a compet&ecirc;ncia certa para o seu desafio</h2>' +
+    html += '<div class="view-head home-hero"><span class="panel-eyebrow">Mapa de compet&ecirc;ncias &middot; Firjan SENAI SESI</span><h2>Encontre a compet&ecirc;ncia certa para o seu desafio</h2>' +
       '<p>Explore o mapa por mat&eacute;ria-prima, compet&ecirc;ncia t&eacute;cnica ou setor de aplica&ccedil;&atilde;o. Em cada caminho, voc&ecirc; encontra conex&otilde;es de P&amp;D, exemplos de produtos e a equipe relacionada.</p></div>';
     html += '<div class="feedback-callout"><div><span class="feedback-callout-label">Ajude a melhorar o mapa</span><strong>Encontrou algo que falta, sobra ou precisa ser corrigido?</strong><span>Deixe sua sugest&atilde;o agora. Depois, voc&ecirc; tamb&eacute;m poder&aacute; opinar em cada compet&ecirc;ncia.</span></div><div class="feedback-callout-actions"><button class="feedback-callout-button" id="btnHomeFeedback" type="button">Dar opini&atilde;o agora <span aria-hidden="true">&rarr;</span></button><button class="feedback-view-button" id="btnViewFeedback" type="button">Ver opini&otilde;es salvas</button></div></div>';
     html += '<div class="home-start"><div><span class="home-start-kicker">Comece por onde fizer mais sentido</span><h3>Tr&ecirc;s portas de entrada para o mesmo mapa</h3></div><span class="home-start-hint">Voc&ecirc; pode mudar de caminho a qualquer momento.</span></div>';
@@ -414,7 +455,11 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   function allFeedbackHtml(){
     if(!FEEDBACK.length) return '<p class="feedback-empty">Ainda n&atilde;o h&aacute; opini&otilde;es salvas.</p>';
     return FEEDBACK.map(function(item){
-      return '<div class="feedback-entry"><strong>'+escapeHtml(item.item_title)+'</strong><span class="feedback-date">'+escapeHtml(item.name)+' · '+escapeHtml(item.created_at)+'</span>' +
+      var origin = item.item_type === 'competencia' ? {page:'Compet&ecirc;ncias', topic:item.item_title} :
+        item.item_type === 'material' ? {page:'Mat&eacute;rias-primas', topic:item.item_title} :
+        item.item_type === 'setor' ? {page:'Aplica&ccedil;&otilde;es', topic:item.item_title} :
+        {page:'Mapa principal', topic:'Vis&atilde;o geral'};
+      return '<div class="feedback-entry"><strong>'+escapeHtml(item.item_title)+'</strong><span class="feedback-origin">P&aacute;gina: '+origin.page+' &middot; Subt&oacute;pico: '+escapeHtml(origin.topic)+'</span><span class="feedback-date">'+escapeHtml(item.name)+' · '+escapeHtml(item.created_at)+'</span>' +
         (item.add ? '<p><b>Acrescentaria:</b> '+escapeHtml(item.add)+'</p>' : '') +
         (item.remove ? '<p><b>Retiraria:</b> '+escapeHtml(item.remove)+'</p>' : '') +
         (item.comments ? '<p>'+escapeHtml(item.comments)+'</p>' : '') + '</div>';
@@ -423,7 +468,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
 
   function openSavedOpinionsPanel(){
     var html = '<div class="panel-top"><div><span class="panel-eyebrow">Contribui&ccedil;&otilde;es da comunidade</span><h3>Opini&otilde;es salvas</h3></div><button class="panel-close" data-close aria-label="Fechar">&times;</button></div>';
-    html += '<p class="plain-p">Veja as sugest&otilde;es registradas por outras pessoas para orientar a revis&atilde;o do mapa.</p><div class="feedback-history feedback-all-history">'+allFeedbackHtml()+'</div>';
+    html += '<p class="plain-p">Veja todas as sugest&otilde;es registradas no mapa, com a p&aacute;gina e o subt&oacute;pico de origem.</p><div class="feedback-history feedback-all-history">'+allFeedbackHtml()+'</div>';
     openPanel(html);
     overlay.classList.add('feedback-overlay');
     panel.querySelector('[data-close]').addEventListener('click', closePanel);

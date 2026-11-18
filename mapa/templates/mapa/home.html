@@ -4,16 +4,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Mapa de Competências — Firjan SENAI</title>
-<link rel="icon" href="data:,">
+<title>Mapa de Competencias</title>
+<link rel="icon" type="image/jpeg" href="{% static 'mapa/img/icon-firjan.jpeg' %}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&family=Barlow+Semi+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{% static 'mapa/css/app.css' %}?v={{ stylesheet_version }}">
 </head>
 <body>
 <header class="topbar">
   <div class="topbar-inner">
+    <a class="brand-logo-link" href="/" aria-label="Voltar à página inicial"><img class="brand-logo" src="{% static 'mapa/img/logo-senai-sesi-transparente.png' %}" alt=""></a>
     <div class="brand">
       <h1>Centro de Tecnologia da Firjan SENAI SESI</h1>
       <span class="brand-code">GRT &middot; GPD</span>
@@ -24,10 +27,23 @@
   </div>
 </header>
 
+<nav class="top-menu" aria-label="Navegação principal">
+  <div class="top-menu-group" data-top-menu-group="material"><button type="button" data-top-menu="material">Matérias-primas</button><div class="top-menu-dropdown" role="menu"></div></div>
+  <div class="top-menu-group" data-top-menu-group="competence"><button type="button" data-top-menu="competence">Competências</button><div class="top-menu-dropdown" role="menu"></div></div>
+  <div class="top-menu-group" data-top-menu-group="sector"><button type="button" data-top-menu="sector">Aplicações</button><div class="top-menu-dropdown" role="menu"></div></div>
+</nav>
+
 <div class="workspace">
   <aside class="sidebar"><nav id="sidebar-nav" aria-label="Navegação do mapa"></nav></aside>
   <main class="app" id="app"></main>
 </div>
+
+<footer class="site-footer">
+  <div class="site-footer-content">
+    <a href="/" aria-label="Voltar à página inicial"><img src="{% static 'mapa/img/logo-senai-sesi-transparente.png' %}" alt=""></a>
+    <span>FIRJAN SENAI SESI</span>
+  </div>
+</footer>
 
 <div class="overlay" id="overlay" hidden>
   <div class="panel" id="panel" role="dialog" aria-modal="true" aria-label="Detalhes do mapa"></div>

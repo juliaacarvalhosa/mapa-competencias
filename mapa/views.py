@@ -10,7 +10,7 @@ from .models import Feedback
 def feedback_payload():
     items = list(Feedback.objects.values(
         'item_type', 'item_key', 'item_title', 'name', 'add', 'remove', 'comments', 'created_at'
-    )[:100])
+    ))
     for item in items:
         item['created_at'] = item['created_at'].strftime('%d/%m/%Y %H:%M')
     return items

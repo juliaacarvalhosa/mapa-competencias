@@ -4,15 +4,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Encontre uma competência | Firjan SENAI</title>
+  <title>Mapa de Competencias</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&family=Barlow+Semi+Condensed:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/jpeg" href="{% static 'mapa/img/icon-firjan.jpeg' %}">
   <link rel="stylesheet" href="{% static 'mapa/css/alternative_ux.css' %}">
 </head>
 <body>
   <header class="alt-header">
     <div class="alt-header-inner">
+      <a class="alt-logo-link" href="/" aria-label="Voltar à página inicial"><img class="alt-logo" src="{% static 'mapa/img/logo-senai-sesi-transparente.png' %}" alt=""></a>
       <a class="alt-brand" href="/">Firjan SENAI <span>Mapa de Competências</span></a>
       <a class="alt-back" href="/">Voltar ao mapa completo</a>
     </div>
@@ -61,6 +65,13 @@
       <div class="previous-feedback"><h3>Contribuições recentes</h3><div id="feedback-list"></div></div>
     </div>
   </div>
+
+  <footer class="alt-footer">
+    <div class="alt-footer-content">
+      <a href="/" aria-label="Voltar à página inicial"><img src="{% static 'mapa/img/logo-senai-sesi-transparente.png' %}" alt=""></a>
+      <span>FIRJAN SENAI SESI</span>
+    </div>
+  </footer>
 
   {{ pilot_data|json_script:"pilot-data" }}
   {{ feedback_items|json_script:"feedback-data" }}

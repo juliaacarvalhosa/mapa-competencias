@@ -3,11 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Mapa de Competências GPA — Piloto (Copy)</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧪</text></svg>">
+<title>Mapa de Competencias</title>
+<link rel="icon" type="image/jpeg" href="icon-firjan.jpeg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#EEF3F1;
@@ -297,11 +298,24 @@ body{background:#fff;letter-spacing:-.005em}
 .avatar{background:#0047B6 !important}
 .footnote{border-top-color:var(--line)}
 @media (max-width:600px){.view-head h2{font-size:28px}.topbar-inner{padding:6px 16px 14px}}
+/* ===== Tema Firjan aplicado ao HTML standalone ===== */
+body{min-height:100vh;display:flex;flex-direction:column;background:#f4f6fa;font-family:"Inter",system-ui,sans-serif}
+.topbar{background-image:url("textura-header.jpg");background-color:#164194;background-size:cover;background-position:center;border-bottom:4px solid #E84910;box-shadow:0 8px 24px rgba(15,47,110,.18)}
+.topbar-inner{position:relative;justify-content:center;align-items:center;max-width:1440px;padding:12px 120px 14px;gap:16px}
+.brand-logo{position:absolute;left:28px;top:50%;transform:translateY(-50%);display:block;width:118px;max-height:58px;object-fit:contain}
+.brand{max-width:900px;flex-direction:column;flex-wrap:nowrap;align-items:center;text-align:center;margin:0 auto}
+.brand h1,.view-head h2,.letter-card h3,.panel h3,.researcher-info .r-name{font-family:"Inter",system-ui,sans-serif}
+.brand h1{color:#fff;font-size:23px}.brand-line{color:rgba(255,255,255,.9);font-size:15px;line-height:1.35}.brand-line-institutes{font-size:13px}.crumbs{position:absolute;right:28px}
+.view-head h2{color:#164194}.view-head h2::after{background:#E84910}.home-col-title,.flank-label,.section-block h4,.panel-eyebrow{color:#164194}
+.btn-primary,.contact-btn.mail{background:#E84910}.btn-primary:hover,.contact-btn.mail:hover{background:#c93c08}
+.site-footer{height:132px;margin-top:auto;border-top:4px solid #E84910;background-image:url("textura-header.jpg");background-color:#164194;background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center}.site-footer-content{display:flex;flex-direction:column;align-items:center;gap:6px;color:rgba(255,255,255,.78);font:400 11px "Inter",system-ui,sans-serif;letter-spacing:.08em;text-align:center}.site-footer-content img{width:68px;max-height:36px;object-fit:contain}
+@media(max-width:600px){.topbar-inner{padding:10px 72px 12px;align-items:center;min-height:78px}.brand-logo{left:16px;width:54px;max-height:48px}.brand h1{font-size:19px}.brand-line-institutes{display:none}.crumbs{position:static;width:100%;justify-content:center}.site-footer{height:72px}}
 </style>
 </head>
 <body>
 <header class="topbar">
   <div class="topbar-inner">
+    <a class="brand-logo-link" href="Mapa_de_Competencias_Firjan_SENAI_v2.html" aria-label="Voltar à página inicial"><img class="brand-logo" src="logo-senai-sesi-transparente.png" alt=""></a>
     <div class="brand">
       <h1>Centro de Tecnologia da Firjan SENAI SESI</h1>
       <span class="brand-code">GRT &middot; GPD</span>
@@ -313,6 +327,8 @@ body{background:#fff;letter-spacing:-.005em}
 </header>
 
 <main class="app" id="app"></main>
+
+<footer class="site-footer"><div class="site-footer-content"><a href="Mapa_de_Competencias_Firjan_SENAI_v2.html" aria-label="Voltar à página inicial"><img src="logo-senai-sesi-transparente.png" alt=""></a><span>FIRJAN SENAI SESI</span></div></footer>
 
 <div class="overlay" id="overlay" hidden>
   <div class="panel" id="panel"></div>

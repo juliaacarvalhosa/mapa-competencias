@@ -365,3 +365,53 @@ button{-webkit-tap-highlight-color:transparent}
 .feedback-callout-actions{display:flex;flex-direction:column;gap:8px;flex:0 0 auto}.feedback-callout-button{padding:14px 21px;font-size:14px}.feedback-view-button{border:1px solid var(--teal);border-radius:999px;background:#fff;color:var(--teal);padding:11px 16px;font:700 12px var(--sans);cursor:pointer}.feedback-view-button:hover{background:var(--teal-mist)}.sub-feedback{padding:10px 15px;font-size:12px}.feedback-overlay{justify-content:center;align-items:center;padding:24px}.feedback-overlay .panel{height:auto;max-height:calc(100vh - 48px);width:min(640px,100%);border-left:4px solid var(--teal);border-radius:18px;box-shadow:0 24px 70px rgba(0,30,80,.24)}.feedback-overlay .panel .cta-row{margin-top:14px}.feedback-all-history{max-height:430px;overflow-y:auto}
 @media(max-width:600px){.feedback-overlay{padding:10px}.feedback-overlay .panel{max-height:calc(100vh - 20px);padding:24px 16px}.feedback-callout-actions{width:100%}.feedback-view-button{width:100%}}
 .required-label{color:var(--bad);font-size:10px;font-weight:600}
+
+/* ===== Tema Firjan: textura e identidade visual ===== */
+:root{
+  --firjan-blue:#164194; --firjan-blue-deep:#0f2f6e; --firjan-orange:#E84910;
+  --firjan-orange-deep:#c93c08; --firjan-blue-soft:#e8eefa;
+  --firjan-canvas:#f4f6fa; --firjan-ink:#14213d; --firjan-muted:#5b6b82;
+  --firjan-line:#dfe5ef; --firjan-texture:url("../img/textura-header.jpg");
+}
+body{min-height:100vh;display:flex;flex-direction:column;background:var(--firjan-canvas);color:var(--firjan-ink);font-family:"Inter",system-ui,sans-serif}
+.workspace{width:100%;flex:1}
+.workspace{display:block;max-width:1200px}
+.workspace .sidebar{display:none}
+.workspace .app{width:100%;max-width:none;padding-left:24px;padding-right:24px}
+.view-head .back-link{display:flex;width:max-content;margin-bottom:14px}
+.view-head>.panel-eyebrow{display:block}
+.top-menu{display:flex;justify-content:center;align-items:stretch;gap:8px;padding:0 20px;border-bottom:1px solid var(--firjan-line);background:#fff;box-shadow:0 3px 12px rgba(15,47,110,.08);position:relative;z-index:20}
+.top-menu-group{position:relative}
+.top-menu button{border:0;border-bottom:3px solid transparent;background:transparent;color:var(--firjan-blue);padding:12px 18px 9px;font:700 14px "Inter",system-ui,sans-serif;cursor:pointer;transition:color .16s ease,background .16s ease,border-color .16s ease}
+.top-menu-group:hover>button,.top-menu button[aria-current="page"]{background:var(--firjan-blue-soft);border-bottom-color:var(--firjan-orange);color:var(--firjan-blue-deep)}
+.top-menu-dropdown{display:none;position:absolute;top:100%;left:0;min-width:260px;max-height:420px;overflow-y:auto;padding:8px;background:#fff;border:1px solid var(--firjan-line);border-top:3px solid var(--firjan-orange);box-shadow:0 14px 30px rgba(15,47,110,.18);border-radius:0 0 10px 10px}
+.top-menu-group:hover .top-menu-dropdown{display:flex;flex-direction:column}
+.top-menu-option{width:100%;padding:10px 12px!important;border:0!important;border-radius:6px;text-align:left;background:#fff!important;color:var(--firjan-ink)!important;font-size:13px!important;font-weight:600!important;line-height:1.3}
+.top-menu-option:hover{background:var(--firjan-blue-soft)!important;color:var(--firjan-blue)!important}
+.topbar{background-image:var(--firjan-texture);background-color:var(--firjan-blue);background-size:cover;background-position:center;border-bottom:4px solid var(--firjan-orange);box-shadow:0 8px 24px rgba(15,47,110,.18)}
+.topbar-inner{position:relative;justify-content:center;align-items:center;max-width:1440px;padding:12px 120px 14px;gap:16px}
+.brand-logo{position:absolute;left:28px;top:50%;transform:translateY(-50%);display:block;width:118px;height:auto;max-height:58px;object-fit:contain}
+.brand-logo-link{position:absolute;left:28px;top:50%;transform:translateY(-50%);display:block;line-height:0}.brand-logo-link .brand-logo{position:static;transform:none}.brand-logo-link:focus-visible{outline:3px solid #fff;outline-offset:4px}
+.brand{max-width:900px;flex-direction:column;flex-wrap:nowrap;align-items:center;text-align:center;gap:3px;margin:0 auto}
+.brand h1,.view-head h2,.letter-card h3,.panel h3,.researcher-info .r-name{font-family:"Inter",system-ui,sans-serif}
+.brand h1{color:#fff;font-size:23px;letter-spacing:.01em}
+.brand-code{color:#fff;background:rgba(255,255,255,.16)}
+.brand-line{color:rgba(255,255,255,.9);font-size:15px;line-height:1.35}
+.brand-line-institutes{font-size:13px}
+.crumbs{position:absolute;right:28px}
+.app{max-width:1200px}
+.view-head h2{color:var(--firjan-blue)}
+.view-head h2::after{background:var(--firjan-orange)}
+.home-col-title,.flank-label,.section-block h4,.panel-eyebrow{color:var(--firjan-blue)}
+.home-item:hover,.chip:hover,.sub-card:hover,.letter-card:hover,.team-card:hover,.client-card:hover,.conn-card:hover{border-color:var(--firjan-blue);background:#fff;box-shadow:0 12px 28px rgba(22,65,148,.16)}
+.sub-code,.tag,.btn-ghost,.panel-close{background:var(--firjan-blue-soft);color:var(--firjan-blue)}
+.btn-primary,.contact-btn.mail{background:var(--firjan-orange)}
+.btn-primary:hover,.contact-btn.mail:hover{background:var(--firjan-orange-deep)}
+.processos-note{border-left-color:var(--firjan-orange)}
+.site-footer{height:132px;margin-top:auto;border-top:4px solid var(--firjan-orange);background-image:var(--firjan-texture);background-color:var(--firjan-blue);background-size:cover;background-position:center;box-shadow:0 -8px 24px rgba(15,47,110,.12);display:flex;align-items:center;justify-content:center}
+.site-footer-content{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:rgba(255,255,255,.78);font:400 11px "Inter",system-ui,sans-serif;letter-spacing:.08em;text-align:center}
+.site-footer-content img{width:68px;height:auto;max-height:36px;object-fit:contain}
+.site-footer-content a{display:block;line-height:0}.site-footer-content a:focus-visible{outline:2px solid rgba(255,255,255,.78);outline-offset:4px}
+@media(max-width:600px){.topbar-inner{padding:10px 72px 12px;align-items:center;min-height:78px}.brand-logo-link{left:16px}.brand-logo{width:54px;max-height:48px}.brand h1{font-size:19px}.brand-line-institutes{display:none}.crumbs{position:static;width:100%;justify-content:center}.site-footer{height:72px}}
+@media(max-width:600px){.top-menu{justify-content:flex-start;overflow-x:auto;padding:0 12px}.top-menu button{flex:0 0 auto;padding:10px 12px 8px;font-size:13px}.top-menu-dropdown{position:fixed;left:12px;right:12px;min-width:0;max-height:300px}.site-footer{height:118px}.site-footer-content img{width:58px}.site-footer-content{font-size:10px}}
+ .feedback-origin{display:block;color:#164194;font-size:11px;line-height:1.4;margin-top:4px}
