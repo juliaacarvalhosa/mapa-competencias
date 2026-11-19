@@ -894,7 +894,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     var letter = state.letter, code = state.code;
     var sub = DATA.competencias[letter].subdivisions[code];
     var relatedCompetences = (DATA.relatedCompetences || {})[code] || [];
-    var bulletsHtml = sub.bullets.map(function(b){
+    var bulletsHtml = sub.bullets.map(function(b, bulletIndex){
       var cardTitle = (letter === 'A' && code === 'A5' && b.indexOf('Processos eletroquímicos:') === 0)
         ? 'Eletroquímica em alta e baixa temperatura'
         : (letter === 'A' && code === 'A5' && b.indexOf('Plasma —') === 0 ? 'Plasma' :
@@ -905,7 +905,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       return '<li class="competence-row"><div class="competence-description">'+
         '<h3>'+escapeHtml(cardTitle || summary)+'</h3>'+
         (((cardTitle && !keepOriginalTitle) || summary !== b) ? '<p class="competence-subtitle">'+escapeHtml(subtitle)+'</p>' : '')+
-        '</div><button type="button" class="card-edit-button bullet-edit-button" data-bullet-edit="'+escapeHtml(b)+'">Editar card</button></li>';
+        '</div><button type="button" class="card-edit-button bullet-edit-button" data-bullet-edit="'+escapeHtml(b)+'" data-bullet-index="'+bulletIndex+'">Editar card</button></li>';
     }).join('');
     var relatedA3Cards = relatedCompetences.filter(function(item){ return item.displayTitle; }).map(function(item){
       return '<li class="competence-row related-source-card" data-related-comp="'+item.codigo+'"><div class="competence-description">'+
@@ -965,13 +965,13 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       });
     });
     appEl.querySelectorAll('[data-bullet-edit]').forEach(function(button){
-      button.addEventListener('click', function(){ openBulletPanel(letter, code, button.getAttribute('data-bullet-edit'), false); });
+      button.addEventListener('click', function(){ openBulletPanel(letter, code, button.getAttribute('data-bullet-edit'), button.getAttribute('data-bullet-index'), false); });
     });
     document.getElementById('btnCompResearchers').addEventListener('click', function(){
       openSubResearchersPanel(letter, code, sub.title);
     });
     document.getElementById('btnCompAddBullet').addEventListener('click', function(){
-      openBulletPanel(letter, code, '', true);
+      openBulletPanel(letter, code, '', '', true);
     });
     document.getElementById('btnCompFeedback').addEventListener('click', function(){
       openFeedbackPanel('competencia', code, code+' · '+sub.title);
@@ -979,7 +979,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   }
 
 
-  function openBulletPanel(letter, code, bullet, adding){
+  function openBulletPanel(letter, code, bullet, bulletIndex, adding){
     var html = '<div class="panel-top"><div><span class="panel-eyebrow">Edi&ccedil;&atilde;o protegida</span><h3>'+(adding?'Adicionar card':'Editar card')+'</h3></div><button class="panel-close" data-close aria-label="Fechar">&times;</button></div>';
     html += '<p class="plain-p">Este card pertence &agrave; compet&ecirc;ncia '+escapeHtml(code)+'.</p><form id="bullet-edit-form" class="main-feedback-form"><label>Palavra de seguran&ccedil;a<input name="password" type="password" required></label><label>Texto do card<textarea name="bullet" rows="5" required>'+escapeHtml(bullet)+'</textarea></label><p class="feedback-status" role="status"></p><button class="btn btn-primary" type="submit">Salvar card</button></form>';
     openPanel(html); overlay.classList.add('feedback-overlay');
@@ -987,7 +987,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     var form = panel.querySelector('#bullet-edit-form');
     form.addEventListener('submit', function(event){
       event.preventDefault(); var status=form.querySelector('.feedback-status'); status.textContent='Salvando...';
-      fetch('/mapa/cards/edit/', {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}, body:JSON.stringify({password:form.elements.password.value, action:adding?'add_bullet':'update_bullet', item_type:'competencia', item_key:code, fields:{bullet:form.elements.bullet.value, old_bullet:bullet}})})
+      fetch('/mapa/cards/edit/', {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}, body:JSON.stringify({password:form.elements.password.value, action:adding?'add_bullet':'update_bullet', item_type:'competencia', item_key:code, fields:{bullet:form.elements.bullet.value, old_bullet:bullet, bullet_index:bulletIndex}})})
         .then(function(response){return response.json().then(function(body){if(!response.ok) throw new Error(body.error||'N&atilde;o foi poss&iacute;vel salvar.');return body;});})
         .then(function(){status.textContent='Card salvo. Atualizando...';window.setTimeout(function(){window.location.reload();},300);})
         .catch(function(error){status.textContent=error.message;});

@@ -114,9 +114,13 @@ def edit_card(request):
                 else:
                     old_bullet = str(fields.get('old_bullet', '')).strip()
                     replacement = text('bullet', True, 5000)
-                    if old_bullet not in bullets:
+                    bullet_index = fields.get('bullet_index')
+                    if bullet_index is not None and str(bullet_index).isdigit() and int(bullet_index) < len(bullets):
+                        bullets[int(bullet_index)] = replacement
+                    elif old_bullet in bullets:
+                        bullets[bullets.index(old_bullet)] = replacement
+                    else:
                         raise ValueError('Card interno não encontrado.')
-                    bullets[bullets.index(old_bullet)] = replacement
                 card['bullets'] = bullets[:100]
                 letter = key[:1]
                 code = key
