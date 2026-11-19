@@ -24,3 +24,15 @@ class Feedback(models.Model):
 
     def __str__(self):
         return f'{self.item_title} — {self.name}'
+
+
+class MapCard(models.Model):
+    item_type = models.CharField(max_length=20)
+    item_key = models.CharField(max_length=160)
+    data = models.JSONField(default=dict)
+    is_new = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=('item_type', 'item_key'), name='unique_map_card')]
+        ordering = ('item_type', 'item_key')

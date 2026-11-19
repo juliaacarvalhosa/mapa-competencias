@@ -4,7 +4,7 @@ from django.conf import settings
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_POST
-from .models import Feedback
+from .models import Feedback, MapCard
 
 
 def feedback_payload():
@@ -16,9 +16,29 @@ def feedback_payload():
     return items
 
 
-def alternative_ux(request):
+def load_pilot_data():
     with (settings.BASE_DIR / 'data' / 'pilot_map.json').open(encoding='utf-8') as source:
         data = json.load(source)
+    for card in MapCard.objects.all():
+        if card.item_type == 'competencia':
+            letter = card.data.get('letter', card.item_key[:1])
+            subdivisions = data.setdefault('competencias', {}).setdefault(letter, {}).setdefault('subdivisions', {})
+            if card.is_new or card.item_key in subdivisions:
+                subdivisions[card.item_key] = card.data
+        else:
+            collection_name = 'materialsLeft' if card.item_type == 'material' else 'sectorsRight'
+            collection = data.setdefault(collection_name, [])
+            if card.is_new:
+                collection.append(card.data)
+            else:
+                current = next((item for item in collection if item.get('nome') == card.item_key), None)
+                if current:
+                    current.update(card.data)
+    return data
+
+
+def alternative_ux(request):
+    data = load_pilot_data()
     return render(request, 'mapa/alternative_ux.html', {'pilot_data': data, 'feedback_items': feedback_payload()})
 
 
@@ -47,9 +67,108 @@ def submit_feedback(request):
     return JsonResponse({'id': feedback.id, 'created_at': feedback.created_at.strftime('%d/%m/%Y %H:%M')})
 
 
+@require_POST
+def edit_card(request):
+    try:
+        payload = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Formato inválido.'}, status=400)
+    if payload.get('password', '') != settings.MAP_EDIT_PASSWORD:
+        return JsonResponse({'error': 'Palavra de segurança incorreta.'}, status=403)
+
+    item_type = str(payload.get('item_type', '')).strip()
+    action = str(payload.get('action', 'update')).strip()
+    fields = payload.get('fields') or {}
+    if item_type not in ('competencia', 'material', 'setor') or action not in ('update', 'add', 'add_bullet', 'update_bullet'):
+        return JsonResponse({'error': 'Tipo de card ou operação inválida.'}, status=400)
+    data = load_pilot_data()
+
+    def text(name, required=True, limit=5000):
+        value = str(fields.get(name, '')).strip()
+        if required and not value:
+            raise ValueError('Preencha todos os campos obrigatórios.')
+        return value[:limit]
+
+    def lines(name, required=True):
+        value = fields.get(name, [])
+        if isinstance(value, str):
+            value = value.splitlines()
+        value = [str(item).strip() for item in value if str(item).strip()]
+        if required and not value:
+            raise ValueError('Inclua pelo menos um item na lista.')
+        return value[:100]
+
+    try:
+        key = str(payload.get('item_key', '')).strip()
+        if item_type == 'competencia':
+            letter = str(fields.get('letter') or key[:1] or 'A').strip().upper()
+            code = str(fields.get('code') or key).strip().upper()
+            subdivisions = data.setdefault('competencias', {}).setdefault(letter, {}).setdefault('subdivisions', {})
+            if action in ('add_bullet', 'update_bullet'):
+                if key not in subdivisions:
+                    raise ValueError('Competência não encontrada.')
+                card = subdivisions[key]
+                bullets = list(card.get('bullets', []))
+                if action == 'add_bullet':
+                    bullets.append(text('bullet', True, 5000))
+                else:
+                    old_bullet = str(fields.get('old_bullet', '')).strip()
+                    replacement = text('bullet', True, 5000)
+                    if old_bullet not in bullets:
+                        raise ValueError('Card interno não encontrado.')
+                    bullets[bullets.index(old_bullet)] = replacement
+                card['bullets'] = bullets[:100]
+                letter = key[:1]
+                code = key
+            elif action == 'add':
+                if code in subdivisions:
+                    raise ValueError('Já existe uma competência com esse código.')
+                subdivisions[code] = {'title': text('title', True, 255), 'bullets': lines('bullets'), 'teams': lines('teams')}
+            else:
+                if not key or key[0] not in data.get('competencias', {}) or key not in data['competencias'][key[0]].get('subdivisions', {}):
+                    raise ValueError('Competência não encontrada.')
+                card = data['competencias'][key[0]]['subdivisions'][key]
+                card['title'] = text('title', True, 255)
+                card['bullets'] = lines('bullets')
+                card['teams'] = lines('teams')
+        else:
+            collection_name = 'materialsLeft' if item_type == 'material' else 'sectorsRight'
+            collection = data.setdefault(collection_name, [])
+            if action == 'add':
+                name = text('nome', True, 255)
+                if any(item.get('nome') == name for item in collection):
+                    raise ValueError('Já existe um card com esse nome.')
+                collection.append({'nome': name, 'explicacao': text('explicacao'), 'produtos': lines('produtos'), 'mercado_br': {'valor': 'Pendente de preenchimento', 'fonte': 'A informar', 'confianca': 'nao_verificado'}, 'mercado_global': {'valor': 'Pendente de preenchimento', 'fonte': 'A informar', 'confianca': 'nao_verificado'}})
+                if item_type == 'setor':
+                    collection[-1]['empresas'] = []
+            else:
+                card = next((item for item in collection if item.get('nome') == key), None)
+                if not card:
+                    raise ValueError('Card não encontrado.')
+                card['nome'] = text('nome', True, 255)
+                card['explicacao'] = text('explicacao')
+                card['produtos'] = lines('produtos')
+        if item_type == 'competencia' and action in ('add_bullet', 'update_bullet'):
+            stored_key = key
+            stored_data = dict(card)
+            stored_data['letter'] = letter
+        elif item_type == 'competencia':
+            stored_key = code if action == 'add' else key
+            stored_data = {'letter': letter, 'title': text('title', True, 255), 'bullets': lines('bullets'), 'teams': lines('teams')}
+        else:
+            stored_key = name if action == 'add' else key
+            stored_data = {'nome': name if action == 'add' else text('nome', True, 255), 'explicacao': text('explicacao'), 'produtos': lines('produtos')}
+            if action == 'add':
+                stored_data.update({'mercado_br': {'valor': 'Pendente de preenchimento', 'fonte': 'A informar', 'confianca': 'nao_verificado'}, 'mercado_global': {'valor': 'Pendente de preenchimento', 'fonte': 'A informar', 'confianca': 'nao_verificado'}})
+                if item_type == 'setor': stored_data['empresas'] = []
+        MapCard.objects.update_or_create(item_type=item_type, item_key=stored_key, defaults={'data': stored_data, 'is_new': action == 'add'})
+    except ValueError as error:
+        return JsonResponse({'error': str(error)}, status=400)
+    return JsonResponse({'ok': True})
+
+
 def home(request):
-    with (settings.BASE_DIR / 'data' / 'pilot_map.json').open(encoding='utf-8') as source:
-        data = json.load(source)
+    data = load_pilot_data()
     with (settings.BASE_DIR / 'data' / 'competence_summaries.json').open(encoding='utf-8') as source:
         data['competenceSummaries'] = json.load(source)
     electro = data['competencias']['A']['subdivisions']['A5']

@@ -3,6 +3,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 BASE_DIR = Path(__file__).resolve().parents[2]
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "local-development-only")
+MAP_EDIT_PASSWORD = os.environ.get("MAP_EDIT_PASSWORD", "mapa2026")
 DEBUG = False
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,.vercel.app").split(",")
 INSTALLED_APPS = ["django.contrib.contenttypes", "django.contrib.staticfiles", "mapa"]

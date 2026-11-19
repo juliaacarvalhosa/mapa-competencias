@@ -41,7 +41,7 @@
     </section>
 
     <section class="results-section" aria-live="polite" aria-labelledby="results-title">
-      <div class="section-heading"><div><p class="eyebrow">Resultados relacionados</p><h2 id="results-title">Sugestões para você explorar</h2></div><span id="result-count" class="result-count"></span></div>
+      <div class="section-heading"><div><p class="eyebrow">Resultados relacionados</p><h2 id="results-title">Sugestões para você explorar</h2></div><div><button class="alt-edit-all" id="alt-add-card" type="button">Adicionar card</button><span id="result-count" class="result-count"></span></div></div>
       <div id="results" class="results-grid"></div>
     </section>
   </main>
@@ -75,6 +75,6 @@
 
   {{ pilot_data|json_script:"pilot-data" }}
   {{ feedback_items|json_script:"feedback-data" }}
-  <script src="{% static 'mapa/js/alternative_ux.js' %}"></script>
+  <script src="{% static 'mapa/js/alternative_ux.js' %}?v=edit-cards-2"></script>
 </body>
 </html>

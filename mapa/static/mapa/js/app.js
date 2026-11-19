@@ -39,9 +39,19 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     else if(state.view === 'rdcategory') renderRdCategory();
     else if(state.view === 'drill') renderDrill();
     else if(state.view === 'competencia') renderCompetenciaFull();
+    addDetailEditAction();
     renderCrumbs();
     updateSidebar();
     updateTopMenu();
+  }
+
+  function addDetailEditAction(){
+    if(state.view !== 'competencia' || document.getElementById('btnCompEdit')) return;
+    var actions = document.querySelector('#app .cta-row');
+    if(!actions) return;
+    var button = document.createElement('button'); button.type='button'; button.className='btn btn-primary'; button.id='btnCompEdit'; button.textContent='Editar card';
+    actions.insertBefore(button, actions.firstChild);
+    button.addEventListener('click', function(){ openEditPanel('competencia', state.code, false); });
   }
 
   function updateTopMenu(){
@@ -244,7 +254,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     var html = '';
     html += '<div class="view-head home-hero"><span class="panel-eyebrow">Mapa de compet&ecirc;ncias &middot; Firjan SENAI SESI</span><h2>Encontre a compet&ecirc;ncia certa para o seu desafio</h2>' +
       '<p>Explore o mapa por mat&eacute;ria-prima, compet&ecirc;ncia t&eacute;cnica ou setor de aplica&ccedil;&atilde;o. Em cada caminho, voc&ecirc; encontra conex&otilde;es de P&amp;D, exemplos de produtos e a equipe relacionada.</p></div>';
-    html += '<div class="feedback-callout"><div><span class="feedback-callout-label">Ajude a melhorar o mapa</span><strong>Encontrou algo que falta, sobra ou precisa ser corrigido?</strong><span>Deixe sua sugest&atilde;o agora. Depois, voc&ecirc; tamb&eacute;m poder&aacute; opinar em cada compet&ecirc;ncia.</span></div><div class="feedback-callout-actions"><button class="feedback-callout-button" id="btnHomeFeedback" type="button">Dar opini&atilde;o agora <span aria-hidden="true">&rarr;</span></button><button class="feedback-view-button" id="btnViewFeedback" type="button">Ver opini&otilde;es salvas</button></div></div>';
+    html += '<div class="feedback-callout"><div><span class="feedback-callout-label">Ajude a melhorar o mapa</span><strong>Encontrou algo que falta, sobra ou precisa ser corrigido?</strong><span>Opine livremente ou edite os cards com a palavra de seguran&ccedil;a.</span></div><div class="feedback-callout-actions"><button class="feedback-callout-button" id="btnHomeFeedback" type="button">Dar opini&atilde;o agora <span aria-hidden="true">&rarr;</span></button><button class="feedback-view-button" id="btnViewFeedback" type="button">Ver opini&otilde;es salvas</button><button class="feedback-view-button" id="btnAddCard" type="button">Adicionar card</button></div></div>';
     html += '<div class="home-start"><div><span class="home-start-kicker">Comece por onde fizer mais sentido</span><h3>Tr&ecirc;s portas de entrada para o mesmo mapa</h3></div><span class="home-start-hint">Voc&ecirc; pode mudar de caminho a qualquer momento.</span></div>';
     html += '<div class="home-entry-grid">';
     html += homeEntryHtml('material', 'Mat&eacute;rias-primas', 'Parta do insumo e descubra rotas de transforma&ccedil;&atilde;o, compet&ecirc;ncias e aplica&ccedil;&otilde;es.', DATA.materialsLeft.length, 'insumos dispon&iacute;veis');
@@ -262,20 +272,28 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
         else goItem(kind, 0);
       });
     });
+    appEl.querySelectorAll('[data-home-edit]').forEach(function(button){
+      button.addEventListener('click', function(event){ event.stopPropagation(); openCardChooser(button.getAttribute('data-home-edit')); });
+    });
+    appEl.querySelectorAll('[data-home-add]').forEach(function(button){
+      button.addEventListener('click', function(event){ event.stopPropagation(); var kind=button.getAttribute('data-home-add'); openEditPanel(kind === 'competence' ? 'competencia' : (kind === 'material' ? 'material' : 'setor'), '', true); });
+    });
     var btnEq = document.getElementById('btnEquipe');
     if(btnEq) btnEq.addEventListener('click', openTeamPanel);
     var btnHomeFeedback = document.getElementById('btnHomeFeedback');
     if(btnHomeFeedback) btnHomeFeedback.addEventListener('click', function(){ openFeedbackPanel('mapa', 'geral', 'Mapa de Competencias Firjan SENAI'); });
     var btnViewFeedback = document.getElementById('btnViewFeedback');
     if(btnViewFeedback) btnViewFeedback.addEventListener('click', openSavedOpinionsPanel);
+    var btnAddCard = document.getElementById('btnAddCard');
+    if(btnAddCard) btnAddCard.addEventListener('click', function(){ openEditPanel('competencia', '', true); });
   }
 
   function homeEntryHtml(kind, title, description, count, countLabel){
     var icon = kind === 'material' ? '01' : (kind === 'competence' ? '02' : '03');
-    return '<button class="home-entry" data-home-entry="'+kind+'">' +
+    return '<div class="home-entry-wrap"><div class="home-entry" data-home-entry="'+kind+'">' +
       '<span class="home-entry-top"><span class="home-entry-index">'+icon+'</span><span class="home-entry-arrow" aria-hidden="true">&#8599;</span></span>' +
       '<span class="home-entry-title">'+title+'</span><span class="home-entry-description">'+description+'</span>' +
-      '<span class="home-entry-meta"><strong>'+count+'</strong> '+countLabel+'</span></button>';
+      '<span class="home-entry-meta"><strong>'+count+'</strong> '+countLabel+'</span><div class="home-entry-actions"><button class="home-entry-edit" type="button" data-home-edit="'+kind+'">Editar card</button><button class="home-entry-add" type="button" data-home-add="'+kind+'">Adicionar card</button></div></div></div>';
   }
 
   // ---------------- SECTION ----------------
@@ -287,13 +305,14 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     html += '<button class="back-link" data-nav="home">&larr; Voltar aos cinco eixos</button>';
     html += '<h2>'+letter+'. '+LETTER_META[letter].label+'</h2>';
     html += '<p>'+LETTER_META[letter].desc+'</p>';
+    html += '<div class="section-edit-actions"><button class="btn btn-primary" id="btnAddCompetence" type="button">Adicionar nova compet&ecirc;ncia</button></div>';
     html += '</div>';
 
     if(letter === 'A'){
       html += '<div class="section-columns">';
       html += '<div class="flank"><p class="flank-label">Matérias-primas</p>';
       DATA.materialsLeft.forEach(function(m,i){
-        html += '<button class="chip" data-open="material" data-index="'+i+'">'+m.nome+'</button>';
+        html += '<div class="editable-card-row"><button class="chip" data-open="material" data-index="'+i+'">'+m.nome+'</button><button class="card-edit-button" data-edit-type="material" data-edit-key="'+escapeHtml(m.nome)+'" type="button">Editar</button></div>';
       });
       html += '</div>';
 
@@ -307,7 +326,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
 
       html += '<div class="flank"><p class="flank-label">Setores de aplicação</p>';
       DATA.sectorsRight.forEach(function(s,i){
-        html += '<button class="chip" data-open="sector" data-index="'+i+'">'+s.nome+'</button>';
+        html += '<div class="editable-card-row"><button class="chip" data-open="sector" data-index="'+i+'">'+s.nome+'</button><button class="card-edit-button" data-edit-type="setor" data-edit-key="'+escapeHtml(s.nome)+'" type="button">Editar</button></div>';
       });
       html += '</div>';
       html += '</div>';
@@ -337,6 +356,8 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     }
 
     appEl.innerHTML = html;
+    var btnAddCompetence = document.getElementById('btnAddCompetence');
+    if(btnAddCompetence) btnAddCompetence.addEventListener('click', function(){ openEditPanel('competencia', '', true); });
 
     appEl.querySelectorAll('[data-nav="home"]').forEach(function(b){ b.addEventListener('click', goHome); });
     appEl.querySelectorAll('.sub-card').forEach(function(b){
@@ -351,6 +372,9 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
         var sub = DATA.competencias[code[0]].subdivisions[code];
         openFeedbackPanel('competencia', code, code+' · '+sub.title);
       });
+    });
+    appEl.querySelectorAll('[data-edit-type]').forEach(function(b){
+      b.addEventListener('click', function(event){ event.stopPropagation(); openEditPanel(b.getAttribute('data-edit-type'), b.getAttribute('data-edit-key'), false); });
     });
     appEl.querySelectorAll('[data-open="sector"]').forEach(function(b){
       b.addEventListener('click', function(){ openSectorPanel(parseInt(b.getAttribute('data-index'),10)); });
@@ -403,7 +427,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       '<span class="sub-code">'+code+'</span>' +
       '<span class="sub-title">'+sub.title+'</span>' +
       '<span class="sub-foot">'+dots+'<span class="sub-count">'+sub.bullets.length+' competências</span></span>' +
-      '<span class="sub-action">Abrir detalhes <span aria-hidden="true">&rarr;</span></span></button><button type="button" class="sub-feedback" data-card-feedback="'+code+'">Dar opini&atilde;o</button></div>';
+      '<span class="sub-action">Abrir detalhes <span aria-hidden="true">&rarr;</span></span></button><div class="card-actions"><button type="button" class="sub-feedback" data-card-feedback="'+code+'">Dar opini&atilde;o</button><button type="button" class="card-edit-button" data-edit-type="competencia" data-edit-key="'+code+'">Editar</button></div></div>';
   }
 
   // ---------------- PANELS ----------------
@@ -431,6 +455,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   function openFeedbackPanel(itemType, itemKey, itemTitle){
     var html = '<div class="panel-top"><div><span class="panel-eyebrow">Contribua com o mapa</span><h3>Dar opini&atilde;o</h3></div><button class="panel-close" data-close aria-label="Fechar">&times;</button></div>';
     html += '<p class="plain-p feedback-target">'+escapeHtml(itemTitle)+'</p>';
+    html += '<div class="cta-row"><button class="btn btn-primary" id="btnFeedbackEdit" type="button">Editar este card</button></div>';
     html += '<form id="main-feedback-form" class="main-feedback-form"><input type="hidden" name="item_type" value="'+escapeHtml(itemType)+'"><input type="hidden" name="item_key" value="'+escapeHtml(itemKey)+'"><input type="hidden" name="item_title" value="'+escapeHtml(itemTitle)+'">';
     html += '<label>Seu nome <span class="required-label">(obrigat&oacute;rio)</span><input name="name" maxlength="120" required placeholder="Como devemos identificar sua contribui&ccedil;&atilde;o?"></label>';
     html += '<label>O que voc&ecirc; acrescentaria?<textarea name="add" rows="3" placeholder="Uma compet&ecirc;ncia, exemplo ou informa&ccedil;&atilde;o que est&aacute; faltando"></textarea></label>';
@@ -440,6 +465,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     openPanel(html);
     overlay.classList.add('feedback-overlay');
     panel.querySelector('[data-close]').addEventListener('click', closePanel);
+    panel.querySelector('#btnFeedbackEdit').addEventListener('click', function(){ closePanel(); openEditPanel(itemType, itemKey, false); });
     var form = panel.querySelector('#main-feedback-form');
     form.addEventListener('submit', function(event){
       event.preventDefault();
@@ -450,6 +476,56 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
         .then(function(body){ FEEDBACK.unshift({item_type:payload.item_type,item_key:payload.item_key,item_title:payload.item_title,name:payload.name,add:payload.add,remove:payload.remove,comments:payload.comments,created_at:body.created_at}); status.textContent='Contribui&ccedil;&atilde;o salva. Obrigado por ajudar a melhorar o mapa.'; panel.querySelector('.feedback-history-list').innerHTML=feedbackListHtml(itemType,itemKey); form.elements.add.value=''; form.elements.remove.value=''; form.elements.comments.value=''; })
         .catch(function(error){ status.textContent=error.message; });
     });
+  }
+
+  function openEditPanel(itemType, itemKey, adding){
+    var card = null;
+    if(!adding){
+      if(itemType === 'competencia') card = DATA.competencias[itemKey[0]].subdivisions[itemKey];
+      else card = (itemType === 'material' ? DATA.materialsLeft : DATA.sectorsRight).find(function(item){ return item.nome === itemKey; });
+    }
+    card = card || {title:'', bullets:[], teams:[], nome:'', explicacao:'', produtos:[]};
+    var title = adding ? 'Adicionar card' : 'Editar card';
+    var value = function(text){ return escapeHtml(text || ''); };
+    var html = '<div class="panel-top"><div><span class="panel-eyebrow">Edi&ccedil;&atilde;o protegida</span><h3>'+title+'</h3></div><button class="panel-close" data-close aria-label="Fechar">&times;</button></div>';
+    html += '<p class="plain-p">Informe a palavra de seguran&ccedil;a para autorizar esta altera&ccedil;&atilde;o.</p>';
+    html += '<form id="card-edit-form" class="main-feedback-form"><label>Palavra de seguran&ccedil;a<input name="password" type="password" required autocomplete="current-password"></label>';
+    if(adding) html += '<label>Tipo de card<select name="item_type"><option value="competencia">Compet&ecirc;ncia</option><option value="material">Mat&eacute;ria-prima</option><option value="setor">Setor</option></select></label>';
+    html += '<div class="edit-fields" data-edit-fields></div><p class="feedback-status" role="status"></p><button class="btn btn-primary" type="submit">Salvar altera&ccedil;&atilde;o</button></form>';
+    openPanel(html); overlay.classList.add('feedback-overlay');
+    var form = panel.querySelector('#card-edit-form'), fields = panel.querySelector('[data-edit-fields]');
+    function renderFields(type){
+      var current = adding ? {title:'',bullets:[],teams:[],nome:'',explicacao:'',produtos:[]} : (type === itemType ? card : {title:'',bullets:[],teams:[],nome:'',explicacao:'',produtos:[]});
+      if(type === 'competencia') fields.innerHTML = '<label>Eixo<input name="letter" maxlength="1" required value="'+value(adding ? 'A' : itemKey[0])+'"></label><label>C&oacute;digo<input name="code" maxlength="12" required value="'+value(adding ? '' : itemKey)+'"></label><label>T&iacute;tulo<input name="title" maxlength="255" required value="'+value(current.title)+'"></label><label>Compet&ecirc;ncias detalhadas<textarea name="bullets" rows="7" placeholder="Uma por linha">'+value((current.bullets||[]).join('\n'))+'</textarea></label><label>Equipes respons&aacute;veis<textarea name="teams" rows="3" placeholder="Uma por linha">'+value((current.teams||[]).join('\n'))+'</textarea></label>';
+      else fields.innerHTML = '<label>Nome<input name="nome" maxlength="255" required value="'+value(current.nome)+'"></label><label>Explica&ccedil;&atilde;o<textarea name="explicacao" rows="4">'+value(current.explicacao)+'</textarea></label><label>Produtos ou aplica&ccedil;&otilde;es<textarea name="produtos" rows="5" placeholder="Um por linha">'+value((current.produtos||[]).join('\n'))+'</textarea></label>';
+    }
+    renderFields(itemType);
+    if(adding) form.elements.item_type.addEventListener('change', function(){ renderFields(form.elements.item_type.value); });
+    panel.querySelector('[data-close]').addEventListener('click', closePanel);
+    form.addEventListener('submit', function(event){
+      event.preventDefault(); var type = adding ? form.elements.item_type.value : itemType, payload = {password:form.elements.password.value, action:adding?'add':'update', item_type:type, item_key:itemKey, fields:{}};
+      new FormData(form).forEach(function(v,k){ if(k !== 'password' && k !== 'item_type') payload.fields[k] = (k === 'bullets' || k === 'teams' || k === 'produtos') ? v.split(/\r?\n/) : v; });
+      var status = form.querySelector('.feedback-status'); status.textContent = 'Salvando...';
+      fetch('/mapa/cards/edit/', {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}, body:JSON.stringify(payload)})
+        .then(function(response){ return response.json().then(function(body){ if(!response.ok) throw new Error(body.error || 'N&atilde;o foi poss&iacute;vel salvar.'); return body; }); })
+        .then(function(){ status.textContent = 'Card salvo. Atualizando o mapa...'; window.setTimeout(function(){ window.location.reload(); }, 300); })
+        .catch(function(error){ status.textContent = error.message; });
+    });
+  }
+
+  function openCardChooser(){
+    var html = '<div class="panel-top"><div><span class="panel-eyebrow">Edi&ccedil;&atilde;o protegida</span><h3>Escolha o card para editar</h3></div><button class="panel-close" data-close aria-label="Fechar">&times;</button></div>';
+    html += '<p class="plain-p">Depois de escolher o card, a palavra de seguran&ccedil;a ser&aacute; solicitada antes de salvar.</p>';
+    html += '<div class="card-chooser-list"><h4>Compet&ecirc;ncias</h4>';
+    Object.keys(DATA.competencias || {}).forEach(function(letter){ Object.keys(DATA.competencias[letter].subdivisions || {}).forEach(function(code){ html += '<button type="button" class="card-chooser-option" data-choose-type="competencia" data-choose-key="'+escapeHtml(code)+'"><strong>'+escapeHtml(code)+'</strong> '+escapeHtml(DATA.competencias[letter].subdivisions[code].title)+'</button>'; }); });
+    html += '<h4>Mat&eacute;rias-primas</h4>';
+    DATA.materialsLeft.forEach(function(item){ html += '<button type="button" class="card-chooser-option" data-choose-type="material" data-choose-key="'+escapeHtml(item.nome)+'">'+escapeHtml(item.nome)+'</button>'; });
+    html += '<h4>Setores</h4>';
+    DATA.sectorsRight.forEach(function(item){ html += '<button type="button" class="card-chooser-option" data-choose-type="setor" data-choose-key="'+escapeHtml(item.nome)+'">'+escapeHtml(item.nome)+'</button>'; });
+    html += '</div>';
+    openPanel(html); overlay.classList.add('feedback-overlay');
+    panel.querySelector('[data-close]').addEventListener('click', closePanel);
+    panel.querySelectorAll('[data-choose-type]').forEach(function(button){ button.addEventListener('click', function(){ closePanel(); openEditPanel(button.getAttribute('data-choose-type'), button.getAttribute('data-choose-key'), false); }); });
   }
 
   function allFeedbackHtml(){
@@ -698,11 +774,14 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       html += '<div class="section-block"><h4>Exemplos de grandes empresas do setor</h4><div class="company-grid">' +
         it.empresas.map(function(e){return '<div class="company-card">'+e+'</div>';}).join('') + '</div></div>';
     }
-    html += '<div class="cta-row"><button class="btn btn-ghost" id="btnItemFeedback">Dar opini&atilde;o sobre este item</button></div>';
+    html += '<div class="cta-row"><button class="btn btn-primary" id="btnItemEdit">Editar card</button><button class="btn btn-ghost" id="btnItemFeedback">Dar opini&atilde;o sobre este item</button></div>';
     appEl.innerHTML = html;
     appEl.querySelector('[data-nav="home2"]').addEventListener('click', goHome);
     document.getElementById('btnItemFeedback').addEventListener('click', function(){
       openFeedbackPanel(isSector ? 'setor' : 'material', it.nome, it.nome);
+    });
+    document.getElementById('btnItemEdit').addEventListener('click', function(){
+      openEditPanel(isSector ? 'setor' : 'material', it.nome, false);
     });
     if(isSector){
       appEl.querySelectorAll('[data-rd-cat]').forEach(function(b){
@@ -826,7 +905,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       return '<li class="competence-row"><div class="competence-description">'+
         '<h3>'+escapeHtml(cardTitle || summary)+'</h3>'+
         (((cardTitle && !keepOriginalTitle) || summary !== b) ? '<p class="competence-subtitle">'+escapeHtml(subtitle)+'</p>' : '')+
-        '</div></li>';
+        '</div><button type="button" class="card-edit-button bullet-edit-button" data-bullet-edit="'+escapeHtml(b)+'">Editar card</button></li>';
     }).join('');
     var relatedA3Cards = relatedCompetences.filter(function(item){ return item.displayTitle; }).map(function(item){
       return '<li class="competence-row related-source-card" data-related-comp="'+item.codigo+'"><div class="competence-description">'+
@@ -868,7 +947,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       });
       html += '</div>';
     }
-    html += '<div class="cta-row"><button class="btn btn-primary" id="btnCompResearchers">Contato do(s) pesquisador(es) responsável(eis)</button><button class="btn btn-ghost" id="btnCompFeedback">Dar opinião sobre esta competência</button></div>';
+    html += '<div class="cta-row"><button class="btn btn-primary" id="btnCompResearchers">Contato do(s) pesquisador(es) responsável(eis)</button><button class="btn btn-primary" id="btnCompAddBullet">Adicionar card nesta competência</button><button class="btn btn-ghost" id="btnCompFeedback">Dar opinião sobre esta competência</button></div>';
     appEl.innerHTML = html;
     appEl.querySelector('[data-nav="rdcat2"]').addEventListener('click', function(){
       goSection(letter);
@@ -885,14 +964,35 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
         goCompetenciaFull(relatedCode[0], relatedCode);
       });
     });
+    appEl.querySelectorAll('[data-bullet-edit]').forEach(function(button){
+      button.addEventListener('click', function(){ openBulletPanel(letter, code, button.getAttribute('data-bullet-edit'), false); });
+    });
     document.getElementById('btnCompResearchers').addEventListener('click', function(){
       openSubResearchersPanel(letter, code, sub.title);
+    });
+    document.getElementById('btnCompAddBullet').addEventListener('click', function(){
+      openBulletPanel(letter, code, '', true);
     });
     document.getElementById('btnCompFeedback').addEventListener('click', function(){
       openFeedbackPanel('competencia', code, code+' · '+sub.title);
     });
   }
 
+
+  function openBulletPanel(letter, code, bullet, adding){
+    var html = '<div class="panel-top"><div><span class="panel-eyebrow">Edi&ccedil;&atilde;o protegida</span><h3>'+(adding?'Adicionar card':'Editar card')+'</h3></div><button class="panel-close" data-close aria-label="Fechar">&times;</button></div>';
+    html += '<p class="plain-p">Este card pertence &agrave; compet&ecirc;ncia '+escapeHtml(code)+'.</p><form id="bullet-edit-form" class="main-feedback-form"><label>Palavra de seguran&ccedil;a<input name="password" type="password" required></label><label>Texto do card<textarea name="bullet" rows="5" required>'+escapeHtml(bullet)+'</textarea></label><p class="feedback-status" role="status"></p><button class="btn btn-primary" type="submit">Salvar card</button></form>';
+    openPanel(html); overlay.classList.add('feedback-overlay');
+    panel.querySelector('[data-close]').addEventListener('click', closePanel);
+    var form = panel.querySelector('#bullet-edit-form');
+    form.addEventListener('submit', function(event){
+      event.preventDefault(); var status=form.querySelector('.feedback-status'); status.textContent='Salvando...';
+      fetch('/mapa/cards/edit/', {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}, body:JSON.stringify({password:form.elements.password.value, action:adding?'add_bullet':'update_bullet', item_type:'competencia', item_key:code, fields:{bullet:form.elements.bullet.value, old_bullet:bullet}})})
+        .then(function(response){return response.json().then(function(body){if(!response.ok) throw new Error(body.error||'N&atilde;o foi poss&iacute;vel salvar.');return body;});})
+        .then(function(){status.textContent='Card salvo. Atualizando...';window.setTimeout(function(){window.location.reload();},300);})
+        .catch(function(error){status.textContent=error.message;});
+    });
+  }
 
   function openStagePanel(letter, index){
     var stages = letter === 'B' ? DATA.bContinuum : DATA.cFunnel;
