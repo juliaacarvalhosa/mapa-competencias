@@ -494,6 +494,10 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   }
 
   function openEditPanel(itemType, itemKey, adding){
+    var meta = cardMeta(itemType, itemKey);
+    var history = (meta && meta.history) ? meta.history : [];
+    var originalVersionIndex = history.findIndex(function(version){ return version.action === 'original'; });
+    var selectedVersionIndex = adding ? -1 : (originalVersionIndex >= 0 ? originalVersionIndex : history.length - 1);
     var card = null;
     if(!adding){
       if(itemType === 'competencia') card = DATA.competencias[itemKey[0]].subdivisions[itemKey];
@@ -506,13 +510,41 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     html += '<p class="plain-p">Informe a palavra de seguran&ccedil;a para autorizar esta altera&ccedil;&atilde;o.</p>';
     html += '<form id="card-edit-form" class="main-feedback-form"><label>Seu nome <span class="required-label">(obrigat&oacute;rio)</span><input name="name" maxlength="120" required placeholder="Quem est&aacute; fazendo esta altera&ccedil;&atilde;o?"></label><label>Palavra de seguran&ccedil;a<input name="password" type="password" required autocomplete="current-password"></label>';
     if(adding) html += '<div class="card-type-picker"><span class="card-type-picker-label">Tipo de card</span><div class="card-type-grid"><button type="button" class="card-type-option is-selected" data-card-type="competencia"><span class="card-type-icon">A</span><span><strong>Compet&ecirc;ncia</strong><small>Uma capacidade t&eacute;cnica do mapa</small></span></button><button type="button" class="card-type-option" data-card-type="material"><span class="card-type-icon">M</span><span><strong>Mat&eacute;ria-prima</strong><small>Um insumo ou recurso de entrada</small></span></button><button type="button" class="card-type-option" data-card-type="setor"><span class="card-type-icon">S</span><span><strong>Setor</strong><small>Uma aplica&ccedil;&atilde;o ou mercado</small></span></button></div><input type="hidden" name="item_type" value="competencia"></div>';
-    html += '<div class="edit-fields" data-edit-fields></div>'+historyHtml(itemType, itemKey)+'<p class="feedback-status" role="status"></p><button class="btn btn-primary" type="submit">Salvar altera&ccedil;&atilde;o</button></form>';
+    html += '<div class="version-selection-note" data-version-selection></div><div class="edit-fields" data-edit-fields></div>'+historyHtml(itemType, itemKey)+'<p class="feedback-status" role="status"></p><button class="btn btn-primary" type="submit">Salvar altera&ccedil;&atilde;o</button></form>';
     openPanel(html); overlay.classList.add('feedback-overlay');
     var form = panel.querySelector('#card-edit-form'), fields = panel.querySelector('[data-edit-fields]');
+    var emptyCard = {title:'',bullets:[],teams:[],nome:'',explicacao:'',produtos:[]};
+    function normalized(value){ return Array.isArray(value) ? value.join('\n') : String(value || ''); }
+    function versionData(index, type){
+      if(index >= 0 && history[index] && history[index].data) return history[index].data;
+      return type === itemType ? card : emptyCard;
+    }
+    function changedFields(index, type){
+      if(index < 0 || !history[index] || history[index].action === 'original') return [];
+      var fieldNames = type === 'competencia' ? ['title','bullets','teams'] : ['nome','explicacao','produtos'];
+      var before = index > 0 ? (history[index - 1].data || {}) : {};
+      var after = history[index].data || {};
+      return fieldNames.filter(function(name){ return normalized(before[name]) !== normalized(after[name]); });
+    }
+    function updateVersionMarkers(type){
+      var changed = changedFields(selectedVersionIndex, type);
+      fields.querySelectorAll('[data-version-field]').forEach(function(label){
+        var name = label.getAttribute('data-version-field');
+        label.classList.toggle('version-changed', changed.indexOf(name) !== -1);
+        var marker = label.querySelector('[data-change-marker]');
+        if(marker) marker.hidden = changed.indexOf(name) === -1;
+      });
+      var note = panel.querySelector('[data-version-selection]');
+      if(!note) return;
+      if(selectedVersionIndex < 0 || !history[selectedVersionIndex]) note.textContent = '';
+      else if(history[selectedVersionIndex].action === 'original') note.innerHTML = '<strong>Vers&atilde;o original</strong><span>Esta &eacute; a base do card. As vers&otilde;es abaixo mostram o que foi alterado.</span>';
+      else note.innerHTML = '<strong>Vers&atilde;o editada</strong><span>O card completo est&aacute; carregado. Os campos alterados nesta vers&atilde;o est&atilde;o destacados.</span>';
+    }
     function renderFields(type){
-      var current = adding ? {title:'',bullets:[],teams:[],nome:'',explicacao:'',produtos:[]} : (type === itemType ? card : {title:'',bullets:[],teams:[],nome:'',explicacao:'',produtos:[]});
-       if(type === 'competencia') fields.innerHTML = '<label>Eixo do mapa<select name="letter" required><option value="A" '+(value(adding ? 'A' : itemKey[0])==='A'?'selected':'')+'>A &mdash; Tecnologias e Processos</option><option value="B" '+(value(adding ? 'A' : itemKey[0])==='B'?'selected':'')+'>B &mdash; Conserva&ccedil;&atilde;o e Monitoramento</option><option value="C" '+(value(adding ? 'A' : itemKey[0])==='C'?'selected':'')+'>C &mdash; Inova&ccedil;&atilde;o em Sa&uacute;de</option><option value="D" '+(value(adding ? 'A' : itemKey[0])==='D'?'selected':'')+'>D &mdash; Biotecnologia</option><option value="E" '+(value(adding ? 'A' : itemKey[0])==='E'?'selected':'')+'>E &mdash; Circularidade</option></select></label><label>C&oacute;digo<input name="code" maxlength="12" required placeholder="Ex.: C1" value="'+value(adding ? '' : itemKey)+'"></label><label>T&iacute;tulo<input name="title" maxlength="255" required value="'+value(current.title)+'"></label><label>Compet&ecirc;ncias detalhadas<textarea name="bullets" rows="7" placeholder="Uma por linha">'+value((current.bullets||[]).join('\n'))+'</textarea></label><label>Equipes respons&aacute;veis<textarea name="teams" rows="3" placeholder="Uma por linha">'+value((current.teams||[]).join('\n'))+'</textarea></label>';
-      else fields.innerHTML = '<label>Nome<input name="nome" maxlength="255" required value="'+value(current.nome)+'"></label><label>Explica&ccedil;&atilde;o<textarea name="explicacao" rows="4">'+value(current.explicacao)+'</textarea></label><label>Produtos ou aplica&ccedil;&otilde;es<textarea name="produtos" rows="5" placeholder="Um por linha">'+value((current.produtos||[]).join('\n'))+'</textarea></label>';
+      var current = adding ? emptyCard : versionData(selectedVersionIndex, type);
+       if(type === 'competencia') fields.innerHTML = '<label>Eixo do mapa<select name="letter" required><option value="A" '+(value(adding ? 'A' : itemKey[0])==='A'?'selected':'')+'>A &mdash; Tecnologias e Processos</option><option value="B" '+(value(adding ? 'A' : itemKey[0])==='B'?'selected':'')+'>B &mdash; Conserva&ccedil;&atilde;o e Monitoramento</option><option value="C" '+(value(adding ? 'A' : itemKey[0])==='C'?'selected':'')+'>C &mdash; Inova&ccedil;&atilde;o em Sa&uacute;de</option><option value="D" '+(value(adding ? 'A' : itemKey[0])==='D'?'selected':'')+'>D &mdash; Biotecnologia</option><option value="E" '+(value(adding ? 'A' : itemKey[0])==='E'?'selected':'')+'>E &mdash; Circularidade</option></select></label><label>C&oacute;digo<input name="code" maxlength="12" required placeholder="Ex.: C1" value="'+value(adding ? '' : itemKey)+'"></label><label data-version-field="title">T&iacute;tulo <span data-change-marker hidden>Alterado</span><input name="title" maxlength="255" required value="'+value(current.title)+'"></label><label data-version-field="bullets">Compet&ecirc;ncias detalhadas <span data-change-marker hidden>Alterado</span><textarea name="bullets" rows="7" placeholder="Uma por linha">'+value((current.bullets||[]).join('\n'))+'</textarea></label><label data-version-field="teams">Equipes respons&aacute;veis <span data-change-marker hidden>Alterado</span><textarea name="teams" rows="3" placeholder="Uma por linha">'+value((current.teams||[]).join('\n'))+'</textarea></label>';
+      else fields.innerHTML = '<label data-version-field="nome">Nome <span data-change-marker hidden>Alterado</span><input name="nome" maxlength="255" required value="'+value(current.nome)+'"></label><label data-version-field="explicacao">Explica&ccedil;&atilde;o <span data-change-marker hidden>Alterado</span><textarea name="explicacao" rows="4">'+value(current.explicacao)+'</textarea></label><label data-version-field="produtos">Produtos ou aplica&ccedil;&otilde;es <span data-change-marker hidden>Alterado</span><textarea name="produtos" rows="5" placeholder="Um por linha">'+value((current.produtos||[]).join('\n'))+'</textarea></label>';
+      updateVersionMarkers(type);
     }
     renderFields(itemType);
     if(adding) panel.querySelectorAll('[data-card-type]').forEach(function(button){
@@ -525,19 +557,17 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     });
     panel.querySelectorAll('[data-version-index]').forEach(function(button){
       button.addEventListener('click', function(){
-        var meta = cardMeta(itemType, itemKey), version = meta && meta.history[Number(button.getAttribute('data-version-index'))];
-        if(!version || !version.data) return;
-        var old = version.data;
-        if(itemType === 'competencia'){
-          if(form.elements.title) form.elements.title.value = old.title || '';
-          if(form.elements.bullets) form.elements.bullets.value = (old.bullets || []).join('\n');
-          if(form.elements.teams) form.elements.teams.value = (old.teams || []).join('\n');
-        } else {
-          if(form.elements.nome) form.elements.nome.value = old.nome || '';
-          if(form.elements.explicacao) form.elements.explicacao.value = old.explicacao || '';
-          if(form.elements.produtos) form.elements.produtos.value = (old.produtos || []).join('\n');
-        }
+        var index = Number(button.getAttribute('data-version-index'));
+        if(!history[index] || !history[index].data) return;
+        selectedVersionIndex = index;
+        renderFields(itemType);
       });
+    });
+    var originalButton = panel.querySelector('[data-version-original]');
+    if(originalButton) originalButton.addEventListener('click', function(){
+      if(originalVersionIndex < 0) return;
+      selectedVersionIndex = originalVersionIndex;
+      renderFields(itemType);
     });
     panel.querySelector('[data-close]').addEventListener('click', closePanel);
     form.addEventListener('submit', function(event){
@@ -555,9 +585,17 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   function historyHtml(type, key){
     var meta = cardMeta(type, key);
     if(!meta || !meta.history || !meta.history.length) return '';
-    return '<div class="card-version-history"><h4>Hist&oacute;rico deste card</h4>'+meta.history.slice().reverse().map(function(version, index){
-      return '<button type="button" class="card-version" data-version-index="'+(meta.history.length-1-index)+'"><strong>'+(version.action === 'original'?'Vers&atilde;o original':(version.action === 'added'?'Card adicionado':'Vers&atilde;o editada'))+'</strong><span>'+(version.name ? escapeHtml(version.name) : 'Autor n&atilde;o identificado')+' &middot; '+escapeHtml(version.created_at||'')+'</span></button>';
-    }).join('')+'<p class="plain-p">Selecione uma vers&atilde;o para carregar seus dados no formul&aacute;rio e editar a partir dela.</p></div>';
+    var labels = {title:'t&iacute;tulo', bullets:'compet&ecirc;ncias detalhadas', teams:'equipes', nome:'nome', explicacao:'explica&ccedil;&atilde;o', produtos:'produtos/aplica&ccedil;&otilde;es'};
+    function changedAt(index){
+      if(index === 0 || meta.history[index].action === 'original') return '';
+      var before = meta.history[index - 1].data || {}, after = meta.history[index].data || {};
+      return Object.keys(labels).filter(function(name){ return normalizedForHistory(before[name]) !== normalizedForHistory(after[name]); }).map(function(name){ return labels[name]; }).join(', ');
+    }
+    function normalizedForHistory(value){ return Array.isArray(value) ? value.join('\n') : String(value || ''); }
+    return '<div class="card-version-history"><h4>Hist&oacute;rico deste card</h4><p class="version-history-help">O original abre primeiro. Clique em uma vers&atilde;o para carregar o card completo e editar a partir dela.</p>'+meta.history.map(function(version, index){
+      var changed = changedAt(index);
+      return '<button type="button" class="card-version '+(version.action === 'original'?'is-original':'')+'" data-version-index="'+index+'"><strong>'+(version.action === 'original'?'Vers&atilde;o original':(version.action === 'added'?'Card adicionado':'Vers&atilde;o editada'))+'</strong><span>'+(version.name ? escapeHtml(version.name) : 'Base do mapa')+' &middot; '+escapeHtml(version.created_at||'')+'</span>'+(changed ? '<small>Alterado: '+changed+'</small>' : '<small>Conte&uacute;do base do card</small>')+'</button>';
+    }).join('')+(meta.history.some(function(version){ return version.action === 'original'; }) ? '<button type="button" class="card-version-back" data-version-original>&larr; Voltar para a vers&atilde;o original</button>' : '')+'</div>';
   }
 
   function openCardChooser(){
