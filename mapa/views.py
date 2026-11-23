@@ -3,6 +3,7 @@ from hashlib import sha256
 from django.conf import settings
 from django.http import JsonResponse
 from django.shortcuts import render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 from .models import Feedback, MapCard
 
@@ -19,7 +20,16 @@ def feedback_payload():
 def load_pilot_data():
     with (settings.BASE_DIR / 'data' / 'pilot_map.json').open(encoding='utf-8') as source:
         data = json.load(source)
+    data['cardMeta'] = {}
     for card in MapCard.objects.all():
+        data['cardMeta'][f'{card.item_type}:{card.item_key}'] = {
+            'is_new': card.is_new,
+            'is_edited': bool(card.history),
+            'created_by': card.created_by,
+            'updated_by': card.updated_by,
+            'updated_at': card.updated_at.strftime('%d/%m/%Y %H:%M'),
+            'history': card.history,
+        }
         if card.item_type == 'competencia':
             letter = card.data.get('letter', card.item_key[:1])
             subdivisions = data.setdefault('competencias', {}).setdefault(letter, {}).setdefault('subdivisions', {})
@@ -76,6 +86,9 @@ def edit_card(request):
     if payload.get('password', '') != settings.MAP_EDIT_PASSWORD:
         return JsonResponse({'error': 'Palavra de segurança incorreta.'}, status=403)
 
+    editor = str(payload.get('name', '')).strip()[:120]
+    if not editor:
+        return JsonResponse({'error': 'Informe seu nome para registrar a alteracao.'}, status=400)
     item_type = str(payload.get('item_type', '')).strip()
     action = str(payload.get('action', 'update')).strip()
     fields = payload.get('fields') or {}
@@ -100,9 +113,23 @@ def edit_card(request):
 
     try:
         key = str(payload.get('item_key', '')).strip()
+        original_key = key
+        base_snapshot = None
+        if item_type == 'competencia' and key:
+            base_snapshot = data.get('competencias', {}).get(key[:1], {}).get('subdivisions', {}).get(key)
+        elif item_type in ('material', 'setor') and key:
+            base_collection = data.get('materialsLeft' if item_type == 'material' else 'sectorsRight', [])
+            base_snapshot = next((item for item in base_collection if item.get('nome') == key), None)
+        if base_snapshot is not None:
+            base_snapshot = json.loads(json.dumps(base_snapshot))
         if item_type == 'competencia':
             letter = str(fields.get('letter') or key[:1] or 'A').strip().upper()
             code = str(fields.get('code') or key).strip().upper()
+            if action == 'add':
+                if code[:1] not in data.get('competencias', {}):
+                    raise ValueError('O c&oacute;digo deve come&ccedil;ar com uma letra de eixo v&aacute;lida (A, B, C, D ou E).')
+                if letter != code[:1]:
+                    raise ValueError('O c&oacute;digo e o eixo selecionado n&atilde;o combinam.')
             subdivisions = data.setdefault('competencias', {}).setdefault(letter, {}).setdefault('subdivisions', {})
             if action in ('add_bullet', 'update_bullet'):
                 if key not in subdivisions:
@@ -165,10 +192,30 @@ def edit_card(request):
             if action == 'add':
                 stored_data.update({'mercado_br': {'valor': 'Pendente de preenchimento', 'fonte': 'A informar', 'confianca': 'nao_verificado'}, 'mercado_global': {'valor': 'Pendente de preenchimento', 'fonte': 'A informar', 'confianca': 'nao_verificado'}})
                 if item_type == 'setor': stored_data['empresas'] = []
-        MapCard.objects.update_or_create(item_type=item_type, item_key=stored_key, defaults={'data': stored_data, 'is_new': action == 'add'})
+        now_label = timezone.now().strftime('%d/%m/%Y %H:%M')
+        initial_history = []
+        if base_snapshot is not None and action != 'add':
+            initial_history.append({'data': base_snapshot, 'name': None, 'action': 'original', 'created_at': now_label})
+        current_version = {'data': json.loads(json.dumps(stored_data)), 'name': editor, 'action': 'added' if action == 'add' else 'edited', 'created_at': now_label}
+        record, created = MapCard.objects.get_or_create(item_type=item_type, item_key=stored_key, defaults={'data': stored_data, 'is_new': action == 'add', 'created_by': editor, 'updated_by': editor, 'history': initial_history + [current_version]})
+        if not created:
+            history = list(record.history or [])
+            if not history and base_snapshot is not None and action != 'add':
+                history.extend(initial_history)
+            history.append(current_version)
+            record.history = history
+            record.data = stored_data
+            record.is_new = False
+            record.updated_by = editor
+            record.save()
+        else:
+            record.updated_by = editor
+            record.save(update_fields=['updated_by', 'updated_at'])
+        if original_key and stored_key != original_key:
+            MapCard.objects.filter(item_type=item_type, item_key=original_key).exclude(pk=record.pk).delete()
     except ValueError as error:
         return JsonResponse({'error': str(error)}, status=400)
-    return JsonResponse({'ok': True})
+    return JsonResponse({'ok': True, 'name': editor})
 
 
 def home(request):

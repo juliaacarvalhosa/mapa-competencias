@@ -25,6 +25,12 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   var AREA_LETTERS = ['A','B','C','D','E'];
 
   var TEAM_COLOR = DATA.teamColors || {};
+  function cardMeta(type, key){ return (DATA.cardMeta || {})[type+':'+key] || null; }
+  function changeBadge(type, key){
+    var meta = cardMeta(type, key);
+    if(!meta) return '';
+    return '<span class="card-change-badge '+(meta.is_new?'card-change-new':'card-change-edited')+'">'+(meta.is_new?'Novo':'Editado')+'</span>';
+  }
 
   // ---------------- state / router ----------------
   var state = { view:'home', letter:null, sub:null, kind:null, index:null };
@@ -312,7 +318,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       html += '<div class="section-columns">';
       html += '<div class="flank"><p class="flank-label">Matérias-primas</p>';
       DATA.materialsLeft.forEach(function(m,i){
-        html += '<div class="editable-card-row"><button class="chip" data-open="material" data-index="'+i+'">'+m.nome+'</button><button class="card-edit-button" data-edit-type="material" data-edit-key="'+escapeHtml(m.nome)+'" type="button">Editar</button></div>';
+        html += '<div class="editable-card-row"><button class="chip" data-open="material" data-index="'+i+'">'+m.nome+'</button>'+changeBadge('material', m.nome)+'<button class="card-edit-button" data-edit-type="material" data-edit-key="'+escapeHtml(m.nome)+'" type="button">Editar</button></div>';
       });
       html += '</div>';
 
@@ -326,7 +332,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
 
       html += '<div class="flank"><p class="flank-label">Setores de aplicação</p>';
       DATA.sectorsRight.forEach(function(s,i){
-        html += '<div class="editable-card-row"><button class="chip" data-open="sector" data-index="'+i+'">'+s.nome+'</button><button class="card-edit-button" data-edit-type="setor" data-edit-key="'+escapeHtml(s.nome)+'" type="button">Editar</button></div>';
+        html += '<div class="editable-card-row"><button class="chip" data-open="sector" data-index="'+i+'">'+s.nome+'</button>'+changeBadge('setor', s.nome)+'<button class="card-edit-button" data-edit-type="setor" data-edit-key="'+escapeHtml(s.nome)+'" type="button">Editar</button></div>';
       });
       html += '</div>';
       html += '</div>';
@@ -425,7 +431,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     }).join('');
     return '<div class="sub-card-wrap"><button class="sub-card" data-letter="'+letter+'" data-code="'+code+'">' +
       '<span class="sub-code">'+code+'</span>' +
-      '<span class="sub-title">'+sub.title+'</span>' +
+      '<span class="sub-title">'+sub.title+'</span>' + changeBadge('competencia', code) +
       '<span class="sub-foot">'+dots+'<span class="sub-count">'+sub.bullets.length+' competências</span></span>' +
       '<span class="sub-action">Abrir detalhes <span aria-hidden="true">&rarr;</span></span></button><div class="card-actions"><button type="button" class="sub-feedback" data-card-feedback="'+code+'">Dar opini&atilde;o</button><button type="button" class="card-edit-button" data-edit-type="competencia" data-edit-key="'+code+'">Editar</button></div></div>';
   }
@@ -478,6 +484,15 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     });
   }
 
+  function refreshCurrentMapView(){
+    var query = '';
+    if(state.view === 'competencia' && state.code) query = '?competencia='+encodeURIComponent(state.code);
+    else if(state.view === 'section' && state.letter) query = '?eixo='+encodeURIComponent(state.letter);
+    else if(state.view === 'item' && state.itemKind === 'sector') query = '?setor='+encodeURIComponent(state.itemIndex);
+    else if(state.view === 'item' && state.itemKind === 'material') query = '?materia='+encodeURIComponent(state.itemIndex);
+    window.location.assign(window.location.pathname + query);
+  }
+
   function openEditPanel(itemType, itemKey, adding){
     var card = null;
     if(!adding){
@@ -489,28 +504,60 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     var value = function(text){ return escapeHtml(text || ''); };
     var html = '<div class="panel-top"><div><span class="panel-eyebrow">Edi&ccedil;&atilde;o protegida</span><h3>'+title+'</h3></div><button class="panel-close" data-close aria-label="Fechar">&times;</button></div>';
     html += '<p class="plain-p">Informe a palavra de seguran&ccedil;a para autorizar esta altera&ccedil;&atilde;o.</p>';
-    html += '<form id="card-edit-form" class="main-feedback-form"><label>Palavra de seguran&ccedil;a<input name="password" type="password" required autocomplete="current-password"></label>';
-    if(adding) html += '<label>Tipo de card<select name="item_type"><option value="competencia">Compet&ecirc;ncia</option><option value="material">Mat&eacute;ria-prima</option><option value="setor">Setor</option></select></label>';
-    html += '<div class="edit-fields" data-edit-fields></div><p class="feedback-status" role="status"></p><button class="btn btn-primary" type="submit">Salvar altera&ccedil;&atilde;o</button></form>';
+    html += '<form id="card-edit-form" class="main-feedback-form"><label>Seu nome <span class="required-label">(obrigat&oacute;rio)</span><input name="name" maxlength="120" required placeholder="Quem est&aacute; fazendo esta altera&ccedil;&atilde;o?"></label><label>Palavra de seguran&ccedil;a<input name="password" type="password" required autocomplete="current-password"></label>';
+    if(adding) html += '<div class="card-type-picker"><span class="card-type-picker-label">Tipo de card</span><div class="card-type-grid"><button type="button" class="card-type-option is-selected" data-card-type="competencia"><span class="card-type-icon">A</span><span><strong>Compet&ecirc;ncia</strong><small>Uma capacidade t&eacute;cnica do mapa</small></span></button><button type="button" class="card-type-option" data-card-type="material"><span class="card-type-icon">M</span><span><strong>Mat&eacute;ria-prima</strong><small>Um insumo ou recurso de entrada</small></span></button><button type="button" class="card-type-option" data-card-type="setor"><span class="card-type-icon">S</span><span><strong>Setor</strong><small>Uma aplica&ccedil;&atilde;o ou mercado</small></span></button></div><input type="hidden" name="item_type" value="competencia"></div>';
+    html += '<div class="edit-fields" data-edit-fields></div>'+historyHtml(itemType, itemKey)+'<p class="feedback-status" role="status"></p><button class="btn btn-primary" type="submit">Salvar altera&ccedil;&atilde;o</button></form>';
     openPanel(html); overlay.classList.add('feedback-overlay');
     var form = panel.querySelector('#card-edit-form'), fields = panel.querySelector('[data-edit-fields]');
     function renderFields(type){
       var current = adding ? {title:'',bullets:[],teams:[],nome:'',explicacao:'',produtos:[]} : (type === itemType ? card : {title:'',bullets:[],teams:[],nome:'',explicacao:'',produtos:[]});
-      if(type === 'competencia') fields.innerHTML = '<label>Eixo<input name="letter" maxlength="1" required value="'+value(adding ? 'A' : itemKey[0])+'"></label><label>C&oacute;digo<input name="code" maxlength="12" required value="'+value(adding ? '' : itemKey)+'"></label><label>T&iacute;tulo<input name="title" maxlength="255" required value="'+value(current.title)+'"></label><label>Compet&ecirc;ncias detalhadas<textarea name="bullets" rows="7" placeholder="Uma por linha">'+value((current.bullets||[]).join('\n'))+'</textarea></label><label>Equipes respons&aacute;veis<textarea name="teams" rows="3" placeholder="Uma por linha">'+value((current.teams||[]).join('\n'))+'</textarea></label>';
+       if(type === 'competencia') fields.innerHTML = '<label>Eixo do mapa<select name="letter" required><option value="A" '+(value(adding ? 'A' : itemKey[0])==='A'?'selected':'')+'>A &mdash; Tecnologias e Processos</option><option value="B" '+(value(adding ? 'A' : itemKey[0])==='B'?'selected':'')+'>B &mdash; Conserva&ccedil;&atilde;o e Monitoramento</option><option value="C" '+(value(adding ? 'A' : itemKey[0])==='C'?'selected':'')+'>C &mdash; Inova&ccedil;&atilde;o em Sa&uacute;de</option><option value="D" '+(value(adding ? 'A' : itemKey[0])==='D'?'selected':'')+'>D &mdash; Biotecnologia</option><option value="E" '+(value(adding ? 'A' : itemKey[0])==='E'?'selected':'')+'>E &mdash; Circularidade</option></select></label><label>C&oacute;digo<input name="code" maxlength="12" required placeholder="Ex.: C1" value="'+value(adding ? '' : itemKey)+'"></label><label>T&iacute;tulo<input name="title" maxlength="255" required value="'+value(current.title)+'"></label><label>Compet&ecirc;ncias detalhadas<textarea name="bullets" rows="7" placeholder="Uma por linha">'+value((current.bullets||[]).join('\n'))+'</textarea></label><label>Equipes respons&aacute;veis<textarea name="teams" rows="3" placeholder="Uma por linha">'+value((current.teams||[]).join('\n'))+'</textarea></label>';
       else fields.innerHTML = '<label>Nome<input name="nome" maxlength="255" required value="'+value(current.nome)+'"></label><label>Explica&ccedil;&atilde;o<textarea name="explicacao" rows="4">'+value(current.explicacao)+'</textarea></label><label>Produtos ou aplica&ccedil;&otilde;es<textarea name="produtos" rows="5" placeholder="Um por linha">'+value((current.produtos||[]).join('\n'))+'</textarea></label>';
     }
     renderFields(itemType);
-    if(adding) form.elements.item_type.addEventListener('change', function(){ renderFields(form.elements.item_type.value); });
+    if(adding) panel.querySelectorAll('[data-card-type]').forEach(function(button){
+      button.addEventListener('click', function(){
+        panel.querySelectorAll('[data-card-type]').forEach(function(option){ option.classList.remove('is-selected'); });
+        button.classList.add('is-selected');
+        form.elements.item_type.value = button.getAttribute('data-card-type');
+        renderFields(form.elements.item_type.value);
+      });
+    });
+    panel.querySelectorAll('[data-version-index]').forEach(function(button){
+      button.addEventListener('click', function(){
+        var meta = cardMeta(itemType, itemKey), version = meta && meta.history[Number(button.getAttribute('data-version-index'))];
+        if(!version || !version.data) return;
+        var old = version.data;
+        if(itemType === 'competencia'){
+          if(form.elements.title) form.elements.title.value = old.title || '';
+          if(form.elements.bullets) form.elements.bullets.value = (old.bullets || []).join('\n');
+          if(form.elements.teams) form.elements.teams.value = (old.teams || []).join('\n');
+        } else {
+          if(form.elements.nome) form.elements.nome.value = old.nome || '';
+          if(form.elements.explicacao) form.elements.explicacao.value = old.explicacao || '';
+          if(form.elements.produtos) form.elements.produtos.value = (old.produtos || []).join('\n');
+        }
+      });
+    });
     panel.querySelector('[data-close]').addEventListener('click', closePanel);
     form.addEventListener('submit', function(event){
-      event.preventDefault(); var type = adding ? form.elements.item_type.value : itemType, payload = {password:form.elements.password.value, action:adding?'add':'update', item_type:type, item_key:itemKey, fields:{}};
+      event.preventDefault(); var type = adding ? form.elements.item_type.value : itemType, payload = {name:form.elements.name.value, password:form.elements.password.value, action:adding?'add':'update', item_type:type, item_key:itemKey, fields:{}};
       new FormData(form).forEach(function(v,k){ if(k !== 'password' && k !== 'item_type') payload.fields[k] = (k === 'bullets' || k === 'teams' || k === 'produtos') ? v.split(/\r?\n/) : v; });
       var status = form.querySelector('.feedback-status'); status.textContent = 'Salvando...';
+      if(type === 'competencia' && payload.fields.code && payload.fields.code.trim().toUpperCase().charAt(0) !== payload.fields.letter){ status.textContent = 'O c&oacute;digo precisa come&ccedil;ar com a letra do eixo selecionado.'; return; }
       fetch('/mapa/cards/edit/', {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}, body:JSON.stringify(payload)})
         .then(function(response){ return response.json().then(function(body){ if(!response.ok) throw new Error(body.error || 'N&atilde;o foi poss&iacute;vel salvar.'); return body; }); })
-        .then(function(){ status.textContent = 'Card salvo. Atualizando o mapa...'; window.setTimeout(function(){ window.location.reload(); }, 300); })
+        .then(function(){ status.textContent = 'Card salvo. Atualizando o mapa...'; window.setTimeout(refreshCurrentMapView, 300); })
         .catch(function(error){ status.textContent = error.message; });
     });
+  }
+
+  function historyHtml(type, key){
+    var meta = cardMeta(type, key);
+    if(!meta || !meta.history || !meta.history.length) return '';
+    return '<div class="card-version-history"><h4>Hist&oacute;rico deste card</h4>'+meta.history.slice().reverse().map(function(version, index){
+      return '<button type="button" class="card-version" data-version-index="'+(meta.history.length-1-index)+'"><strong>'+(version.action === 'original'?'Vers&atilde;o original':(version.action === 'added'?'Card adicionado':'Vers&atilde;o editada'))+'</strong><span>'+(version.name ? escapeHtml(version.name) : 'Autor n&atilde;o identificado')+' &middot; '+escapeHtml(version.created_at||'')+'</span></button>';
+    }).join('')+'<p class="plain-p">Selecione uma vers&atilde;o para carregar seus dados no formul&aacute;rio e editar a partir dela.</p></div>';
   }
 
   function openCardChooser(){
@@ -981,15 +1028,15 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
 
   function openBulletPanel(letter, code, bullet, bulletIndex, adding){
     var html = '<div class="panel-top"><div><span class="panel-eyebrow">Edi&ccedil;&atilde;o protegida</span><h3>'+(adding?'Adicionar card':'Editar card')+'</h3></div><button class="panel-close" data-close aria-label="Fechar">&times;</button></div>';
-    html += '<p class="plain-p">Este card pertence &agrave; compet&ecirc;ncia '+escapeHtml(code)+'.</p><form id="bullet-edit-form" class="main-feedback-form"><label>Palavra de seguran&ccedil;a<input name="password" type="password" required></label><label>Texto do card<textarea name="bullet" rows="5" required>'+escapeHtml(bullet)+'</textarea></label><p class="feedback-status" role="status"></p><button class="btn btn-primary" type="submit">Salvar card</button></form>';
+    html += '<p class="plain-p">Este card pertence &agrave; compet&ecirc;ncia '+escapeHtml(code)+'.</p><form id="bullet-edit-form" class="main-feedback-form"><label>Seu nome <span class="required-label">(obrigat&oacute;rio)</span><input name="name" maxlength="120" required placeholder="Quem est&aacute; fazendo esta altera&ccedil;&atilde;o?"></label><label>Palavra de seguran&ccedil;a<input name="password" type="password" required></label><label>Texto do card<textarea name="bullet" rows="5" required>'+escapeHtml(bullet)+'</textarea></label><p class="feedback-status" role="status"></p><button class="btn btn-primary" type="submit">Salvar card</button></form>';
     openPanel(html); overlay.classList.add('feedback-overlay');
     panel.querySelector('[data-close]').addEventListener('click', closePanel);
     var form = panel.querySelector('#bullet-edit-form');
     form.addEventListener('submit', function(event){
       event.preventDefault(); var status=form.querySelector('.feedback-status'); status.textContent='Salvando...';
-      fetch('/mapa/cards/edit/', {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}, body:JSON.stringify({password:form.elements.password.value, action:adding?'add_bullet':'update_bullet', item_type:'competencia', item_key:code, fields:{bullet:form.elements.bullet.value, old_bullet:bullet, bullet_index:bulletIndex}})})
+      fetch('/mapa/cards/edit/', {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}, body:JSON.stringify({name:form.elements.name.value, password:form.elements.password.value, action:adding?'add_bullet':'update_bullet', item_type:'competencia', item_key:code, fields:{bullet:form.elements.bullet.value, old_bullet:bullet, bullet_index:bulletIndex}})})
         .then(function(response){return response.json().then(function(body){if(!response.ok) throw new Error(body.error||'N&atilde;o foi poss&iacute;vel salvar.');return body;});})
-        .then(function(){status.textContent='Card salvo. Atualizando...';window.setTimeout(function(){window.location.reload();},300);})
+        .then(function(){status.textContent='Card salvo. Atualizando...';window.setTimeout(refreshCurrentMapView,300);})
         .catch(function(error){status.textContent=error.message;});
     });
   }
@@ -1020,6 +1067,8 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     state.view = 'section'; state.letter = params.get('eixo');
   } else if(params.has('setor') && /^\d+$/.test(params.get('setor')) && DATA.sectorsRight[Number(params.get('setor'))]){
     state.view = 'item'; state.itemKind = 'sector'; state.itemIndex = Number(params.get('setor')); state.path = [];
+  } else if(params.has('materia') && /^\d+$/.test(params.get('materia')) && DATA.materialsLeft[Number(params.get('materia'))]){
+    state.view = 'item'; state.itemKind = 'material'; state.itemIndex = Number(params.get('materia')); state.path = [];
   }
   render();
 })();

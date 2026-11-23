@@ -1,5 +1,7 @@
 from django.test import TestCase
 from unittest.mock import patch
+import json
+from mapa.models import MapCard
 
 
 class PilotNavigationTests(TestCase):
@@ -42,3 +44,35 @@ class PilotNavigationTests(TestCase):
             'comments': 'Comentário de teste',
         }, content_type='application/json')
         self.assertEqual(response.status_code, 200)
+
+    def test_card_edit_requires_name_and_keeps_original_version(self):
+        payload = {
+            'password': 'test-password', 'name': '', 'action': 'update',
+            'item_type': 'competencia', 'item_key': 'A1',
+            'fields': {'title': 'Novo título', 'bullets': ['Uma competência'], 'teams': ['Equipe']},
+        }
+        with self.settings(MAP_EDIT_PASSWORD='test-password'):
+            response = self.client.post('/mapa/cards/edit/', data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+
+        payload['password'] = 'test-password'
+        payload['name'] = 'Pessoa editora'
+        with self.settings(MAP_EDIT_PASSWORD='test-password'):
+            response = self.client.post('/mapa/cards/edit/', data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        card = MapCard.objects.get(item_type='competencia', item_key='A1')
+        self.assertEqual(card.updated_by, 'Pessoa editora')
+        self.assertEqual(card.history[0]['data']['title'], 'Pré-tratamento')
+
+    def test_new_card_is_marked_and_has_creator(self):
+        payload = {
+            'password': 'test-password', 'name': 'Pessoa criadora', 'action': 'add',
+            'item_type': 'material', 'item_key': '',
+            'fields': {'nome': 'Material de teste', 'explicacao': 'Descrição', 'produtos': ['Produto']},
+        }
+        with self.settings(MAP_EDIT_PASSWORD='test-password'):
+            response = self.client.post('/mapa/cards/edit/', data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        card = MapCard.objects.get(item_type='material', item_key='Material de teste')
+        self.assertTrue(card.is_new)
+        self.assertEqual(card.created_by, 'Pessoa criadora')

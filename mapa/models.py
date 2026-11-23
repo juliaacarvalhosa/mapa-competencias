@@ -31,6 +31,9 @@ class MapCard(models.Model):
     item_key = models.CharField(max_length=160)
     data = models.JSONField(default=dict)
     is_new = models.BooleanField(default=False)
+    created_by = models.CharField(max_length=120, blank=True)
+    updated_by = models.CharField(max_length=120, blank=True)
+    history = models.JSONField(default=list)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
