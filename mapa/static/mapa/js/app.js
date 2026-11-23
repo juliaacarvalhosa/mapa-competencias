@@ -26,6 +26,14 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
 
   var TEAM_COLOR = DATA.teamColors || {};
   function cardMeta(type, key){ return (DATA.cardMeta || {})[type+':'+key] || null; }
+  function orderedHistory(meta){
+    if(!meta || !Array.isArray(meta.history)) return [];
+    // Older records can have been saved with the current edit before the
+    // original snapshot. Keep the original at the top and preserve the
+    // chronological order of all edits.
+    return meta.history.filter(function(version){ return version.action === 'original'; })
+      .concat(meta.history.filter(function(version){ return version.action !== 'original'; }));
+  }
   function changeBadge(type, key){
     var meta = cardMeta(type, key);
     if(!meta) return '';
@@ -495,7 +503,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
 
   function openEditPanel(itemType, itemKey, adding){
     var meta = cardMeta(itemType, itemKey);
-    var history = (meta && meta.history) ? meta.history : [];
+    var history = orderedHistory(meta);
     var originalVersionIndex = history.findIndex(function(version){ return version.action === 'original'; });
     var selectedVersionIndex = adding ? -1 : (originalVersionIndex >= 0 ? originalVersionIndex : history.length - 1);
     var card = null;
@@ -537,8 +545,13 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       var note = panel.querySelector('[data-version-selection]');
       if(!note) return;
       if(selectedVersionIndex < 0 || !history[selectedVersionIndex]) note.textContent = '';
-      else if(history[selectedVersionIndex].action === 'original') note.innerHTML = '<strong>Vers&atilde;o original</strong><span>Esta &eacute; a base do card. As vers&otilde;es abaixo mostram o que foi alterado.</span>';
-      else note.innerHTML = '<strong>Vers&atilde;o editada</strong><span>O card completo est&aacute; carregado. Os campos alterados nesta vers&atilde;o est&atilde;o destacados.</span>';
+      else if(history[selectedVersionIndex].action === 'original') note.innerHTML = '<strong>Vers&atilde;o original selecionada</strong><span>Esta &eacute; a base do card. As vers&otilde;es abaixo mostram o que foi alterado.</span>';
+      else note.innerHTML = '<strong>Vers&atilde;o editada selecionada</strong><span>O card completo est&aacute; carregado. Os campos alterados nesta vers&atilde;o est&atilde;o destacados.</span>';
+      panel.querySelectorAll('[data-version-index]').forEach(function(button){
+        var isSelected = Number(button.getAttribute('data-version-index')) === selectedVersionIndex;
+        button.classList.toggle('is-selected', isSelected);
+        button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+      });
     }
     function renderFields(type){
       var current = adding ? emptyCard : versionData(selectedVersionIndex, type);
@@ -584,18 +597,21 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
 
   function historyHtml(type, key){
     var meta = cardMeta(type, key);
-    if(!meta || !meta.history || !meta.history.length) return '';
+    var history = orderedHistory(meta);
+    if(!history.length) return '';
     var labels = {title:'t&iacute;tulo', bullets:'compet&ecirc;ncias detalhadas', teams:'equipes', nome:'nome', explicacao:'explica&ccedil;&atilde;o', produtos:'produtos/aplica&ccedil;&otilde;es'};
     function changedAt(index){
-      if(index === 0 || meta.history[index].action === 'original') return '';
-      var before = meta.history[index - 1].data || {}, after = meta.history[index].data || {};
+      if(index === 0 || history[index].action === 'original') return '';
+      var before = history[index - 1].data || {}, after = history[index].data || {};
       return Object.keys(labels).filter(function(name){ return normalizedForHistory(before[name]) !== normalizedForHistory(after[name]); }).map(function(name){ return labels[name]; }).join(', ');
     }
     function normalizedForHistory(value){ return Array.isArray(value) ? value.join('\n') : String(value || ''); }
-    return '<div class="card-version-history"><h4>Hist&oacute;rico deste card</h4><p class="version-history-help">O original abre primeiro. Clique em uma vers&atilde;o para carregar o card completo e editar a partir dela.</p>'+meta.history.map(function(version, index){
+    return '<div class="card-version-history"><h4>Hist&oacute;rico deste card</h4><p class="version-history-help">A vers&atilde;o original aparece primeiro. Clique em uma vers&atilde;o editada para carregar aquele conte&uacute;do.</p>'+history.map(function(version, index){
       var changed = changedAt(index);
-      return '<button type="button" class="card-version '+(version.action === 'original'?'is-original':'')+'" data-version-index="'+index+'"><strong>'+(version.action === 'original'?'Vers&atilde;o original':(version.action === 'added'?'Card adicionado':'Vers&atilde;o editada'))+'</strong><span>'+(version.name ? escapeHtml(version.name) : 'Base do mapa')+' &middot; '+escapeHtml(version.created_at||'')+'</span>'+(changed ? '<small>Alterado: '+changed+'</small>' : '<small>Conte&uacute;do base do card</small>')+'</button>';
-    }).join('')+(meta.history.some(function(version){ return version.action === 'original'; }) ? '<button type="button" class="card-version-back" data-version-original>&larr; Voltar para a vers&atilde;o original</button>' : '')+'</div>';
+      var editNumber = history.slice(0, index + 1).filter(function(item){ return item.action !== 'original'; }).length;
+      var versionLabel = version.action === 'original' ? 'Vers&atilde;o original' : (version.action === 'added' ? 'Card adicionado' : 'Vers&atilde;o editada #' + editNumber);
+      return '<button type="button" class="card-version '+(version.action === 'original'?'is-original':'')+'" data-version-index="'+index+'" aria-pressed="false"><strong>'+versionLabel+'</strong><span>'+(version.name ? escapeHtml(version.name) : 'Base do mapa')+' &middot; '+escapeHtml(version.created_at||'')+'</span>'+(changed ? '<small>Alterado: '+changed+'</small>' : (version.action === 'original' ? '<small>Conte&uacute;do base do card</small>' : '<small>Campos novos ou alterados</small>'))+'</button>';
+    }).join('')+(history.some(function(version){ return version.action === 'original'; }) ? '<button type="button" class="card-version-back" data-version-original>&larr; Voltar para a vers&atilde;o original</button>' : '')+'</div>';
   }
 
   function openCardChooser(){
