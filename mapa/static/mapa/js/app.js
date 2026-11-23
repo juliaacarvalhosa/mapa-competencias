@@ -34,10 +34,18 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     return meta.history.filter(function(version){ return version.action === 'original'; })
       .concat(meta.history.filter(function(version){ return version.action !== 'original'; }));
   }
+  function isOriginalHistoryVersion(version, meta){
+    // A card created by a user has its first saved version as the base for
+    // subsequent edits, even though older records call it "added".
+    return version && (version.action === 'original' ||
+      (version.action === 'added' && meta && !meta.is_new));
+  }
   function changeBadge(type, key){
     var meta = cardMeta(type, key);
     if(!meta) return '';
-    return '<span class="card-change-badge '+(meta.is_new?'card-change-new':'card-change-edited')+'">'+(meta.is_new?'Novo':'Editado')+'</span>';
+    var hasAddedVersion = Array.isArray(meta.history) && meta.history.some(function(version){ return version.action === 'added'; });
+    var isNew = meta.is_new || (hasAddedVersion && !meta.is_edited);
+    return '<span class="card-change-badge '+(isNew?'card-change-new':'card-change-edited')+'">'+(isNew?'Novo':'Editado')+'</span>';
   }
 
   // ---------------- state / router ----------------
@@ -504,7 +512,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   function openEditPanel(itemType, itemKey, adding){
     var meta = cardMeta(itemType, itemKey);
     var history = orderedHistory(meta);
-    var originalVersionIndex = history.findIndex(function(version){ return version.action === 'original'; });
+    var originalVersionIndex = history.findIndex(function(version){ return isOriginalHistoryVersion(version, meta); });
     var selectedVersionIndex = adding ? -1 : (originalVersionIndex >= 0 ? originalVersionIndex : history.length - 1);
     var card = null;
     if(!adding){
@@ -528,7 +536,9 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       return type === itemType ? card : emptyCard;
     }
     function changedFields(index, type){
-      if(index < 0 || !history[index] || history[index].action === 'original') return [];
+      // The first version of a user-created card is its initial content, not
+      // an edit from an empty card. Only later versions can have changed fields.
+      if(index < 0 || !history[index] || history[index].action === 'original' || history[index].action === 'added') return [];
       var fieldNames = type === 'competencia' ? ['title','bullets','teams'] : ['nome','explicacao','produtos'];
       var before = index > 0 ? (history[index - 1].data || {}) : {};
       var after = history[index].data || {};
@@ -545,7 +555,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       var note = panel.querySelector('[data-version-selection]');
       if(!note) return;
       if(selectedVersionIndex < 0 || !history[selectedVersionIndex]) note.textContent = '';
-      else if(history[selectedVersionIndex].action === 'original') note.innerHTML = '<strong>Vers&atilde;o original selecionada</strong><span>Esta &eacute; a base do card. As vers&otilde;es abaixo mostram o que foi alterado.</span>';
+      else if(isOriginalHistoryVersion(history[selectedVersionIndex], meta)) note.innerHTML = '<strong>Vers&atilde;o original selecionada</strong><span>Esta &eacute; a base do card. As vers&otilde;es abaixo mostram o que foi alterado.</span>';
       else note.innerHTML = '<strong>Vers&atilde;o editada selecionada</strong><span>O card completo est&aacute; carregado. Os campos alterados nesta vers&atilde;o est&atilde;o destacados.</span>';
       panel.querySelectorAll('[data-version-index]').forEach(function(button){
         var isSelected = Number(button.getAttribute('data-version-index')) === selectedVersionIndex;
@@ -609,9 +619,13 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     return '<div class="card-version-history"><h4>Hist&oacute;rico deste card</h4><p class="version-history-help">A vers&atilde;o original aparece primeiro. Clique em uma vers&atilde;o editada para carregar aquele conte&uacute;do.</p>'+history.map(function(version, index){
       var changed = changedAt(index);
       var editNumber = history.slice(0, index + 1).filter(function(item){ return item.action !== 'original'; }).length;
-      var versionLabel = version.action === 'original' ? 'Vers&atilde;o original' : (version.action === 'added' ? 'Card adicionado' : 'Vers&atilde;o editada #' + editNumber);
-      return '<button type="button" class="card-version '+(version.action === 'original'?'is-original':'')+'" data-version-index="'+index+'" aria-pressed="false"><strong>'+versionLabel+'</strong><span>'+(version.name ? escapeHtml(version.name) : 'Base do mapa')+' &middot; '+escapeHtml(version.created_at||'')+'</span>'+(changed ? '<small>Alterado: '+changed+'</small>' : (version.action === 'original' ? '<small>Conte&uacute;do base do card</small>' : '<small>Campos novos ou alterados</small>'))+'</button>';
-    }).join('')+(history.some(function(version){ return version.action === 'original'; }) ? '<button type="button" class="card-version-back" data-version-original>&larr; Voltar para a vers&atilde;o original</button>' : '')+'</div>';
+      var hasAddedOriginal = meta && !meta.is_new && history.some(function(item){ return item.action === 'added'; });
+      var isAddedOriginal = version.action === 'added' && meta && !meta.is_new;
+      var versionLabel = version.action === 'original' ? 'Vers&atilde;o original' : (isAddedOriginal ? 'Original adicionado' : (version.action === 'added' ? 'Card adicionado' : (hasAddedOriginal ? 'Edi&ccedil;&atilde;o do adicionado' : 'Vers&atilde;o editada #' + editNumber)));
+      var isOriginal = isOriginalHistoryVersion(version, meta);
+      var versionNote = changed ? '<small>Alterado: '+changed+'</small>' : (isOriginal ? '<small>Conte&uacute;do base do card</small>' : (version.action === 'added' ? '<small>Conte&uacute;do inicial do card</small>' : '<small>Campos alterados</small>'));
+      return '<button type="button" class="card-version '+(isOriginal?'is-original':'')+'" data-version-index="'+index+'" aria-pressed="false"><strong>'+versionLabel+'</strong><span>'+(version.name ? escapeHtml(version.name) : 'Base do mapa')+' &middot; '+escapeHtml(version.created_at||'')+'</span>'+versionNote+'</button>';
+    }).join('')+(history.some(function(version){ return isOriginalHistoryVersion(version, meta); }) ? '<button type="button" class="card-version-back" data-version-original>&larr; Voltar para a vers&atilde;o original</button>' : '')+'</div>';
   }
 
   function openCardChooser(){

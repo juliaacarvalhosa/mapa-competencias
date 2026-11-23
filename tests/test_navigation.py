@@ -2,6 +2,7 @@ from django.test import TestCase
 from unittest.mock import patch
 import json
 from mapa.models import MapCard
+from mapa.views import load_pilot_data
 
 
 class PilotNavigationTests(TestCase):
@@ -76,3 +77,21 @@ class PilotNavigationTests(TestCase):
         card = MapCard.objects.get(item_type='material', item_key='Material de teste')
         self.assertTrue(card.is_new)
         self.assertEqual(card.created_by, 'Pessoa criadora')
+
+    def test_edited_new_card_remains_visible(self):
+        create_payload = {
+            'password': 'test-password', 'name': 'Pessoa criadora', 'action': 'add',
+            'item_type': 'material', 'item_key': '',
+            'fields': {'nome': 'Material editável', 'explicacao': 'Descrição', 'produtos': ['Produto']},
+        }
+        edit_payload = {
+            'password': 'test-password', 'name': 'Pessoa editora', 'action': 'update',
+            'item_type': 'material', 'item_key': 'Material editável',
+            'fields': {'nome': 'Material editável', 'explicacao': 'Descrição atualizada', 'produtos': ['Produto']},
+        }
+        with self.settings(MAP_EDIT_PASSWORD='test-password'):
+            self.client.post('/mapa/cards/edit/', data=json.dumps(create_payload), content_type='application/json')
+            response = self.client.post('/mapa/cards/edit/', data=json.dumps(edit_payload), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        data = load_pilot_data()
+        self.assertTrue(any(item.get('nome') == 'Material editável' and item.get('explicacao') == 'Descrição atualizada' for item in data['materialsLeft']))

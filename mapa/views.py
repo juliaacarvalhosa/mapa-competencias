@@ -22,8 +22,10 @@ def load_pilot_data():
         data = json.load(source)
     data['cardMeta'] = {}
     for card in MapCard.objects.all():
+        history = list(card.history or [])
+        is_user_added = card.is_new or any(version.get('action') == 'added' for version in history)
         base_snapshot = None
-        if not card.is_new:
+        if not is_user_added:
             if card.item_type == 'competencia':
                 base_snapshot = data.get('competencias', {}).get(card.item_key[:1], {}).get('subdivisions', {}).get(card.item_key)
             else:
@@ -32,7 +34,6 @@ def load_pilot_data():
             if base_snapshot is not None:
                 base_snapshot = json.loads(json.dumps(base_snapshot))
 
-        history = list(card.history or [])
         original_versions = [version for version in history if version.get('action') == 'original']
         edited_versions = [version for version in history if version.get('action') != 'original']
         if not card.is_new and base_snapshot is not None and not original_versions:
@@ -43,9 +44,10 @@ def load_pilot_data():
                 'created_at': card.updated_at.strftime('%d/%m/%Y %H:%M'),
             }]
         history = original_versions + edited_versions
+        is_edited = any(version.get('action') not in ('original', 'added') for version in history)
         data['cardMeta'][f'{card.item_type}:{card.item_key}'] = {
             'is_new': card.is_new,
-            'is_edited': bool(history),
+            'is_edited': is_edited,
             'created_by': card.created_by,
             'updated_by': card.updated_by,
             'updated_at': card.updated_at.strftime('%d/%m/%Y %H:%M'),
@@ -54,12 +56,12 @@ def load_pilot_data():
         if card.item_type == 'competencia':
             letter = card.data.get('letter', card.item_key[:1])
             subdivisions = data.setdefault('competencias', {}).setdefault(letter, {}).setdefault('subdivisions', {})
-            if card.is_new or card.item_key in subdivisions:
+            if is_user_added or card.item_key in subdivisions:
                 subdivisions[card.item_key] = card.data
         else:
             collection_name = 'materialsLeft' if card.item_type == 'material' else 'sectorsRight'
             collection = data.setdefault(collection_name, [])
-            if card.is_new:
+            if is_user_added:
                 collection.append(card.data)
             else:
                 current = next((item for item in collection if item.get('nome') == card.item_key), None)
