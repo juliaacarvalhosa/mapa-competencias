@@ -30,7 +30,7 @@ function render(search) {
   const document = {
     body: {style: {}, classList: {toggle(name, enabled) { enabled ? classes.add(name) : classes.delete(name); }}},
     documentElement: {style: {setProperty() {}}},
-    getElementById: element, querySelector: element, addEventListener() {},
+    getElementById: element, querySelector: element, querySelectorAll() { return []; }, addEventListener() {},
   };
   vm.runInNewContext(script, {window, document, URLSearchParams, ResizeObserver: class {observe() {}}});
   return {window, document, classes, element};
@@ -55,8 +55,8 @@ for (const [letter, section] of Object.entries(data.competencias)) {
     assert(page.document.title.startsWith(code + ' — '));
     page.element('app[data-nav="rdcat2"]').events.click();
     assert.equal(page.window.location.destination, '?eixo=' + letter);
-    page.element('btnCompResearchers').events.click();
-    assert.equal(page.element('overlay').hidden, false);
+    assert(!html.includes('btnCompResearchers'));
+    assert(html.includes('aria-haspopup="dialog"'));
     count++;
   }
 }

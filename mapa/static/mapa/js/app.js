@@ -259,18 +259,6 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   function closeOverlayIfOpen(){ if(overlay && !overlay.hidden) closePanel(); }
 
   // ---------------- HOME ----------------
-  function renderHome(){
-    var html = '';
-    html += '<div class="view-head"><h2>Navegue pelo mapa de competências</h2>' +
-      '<p>Três portas de entrada para o mesmo mapa: matérias-primas, competências técnicas e aplicações de mercado. Qualquer uma leva às outras duas pelas conexões de P&amp;D.</p></div>';
-    html += '<p class="processos-note">Selecione um subtópico no menu para explorar as conexões de P&amp;D, as competências e os setores de aplicação.</p>';
-    html += '<button class="team-home-btn" id="btnEquipe">&#128101; Ver equipe de pesquisa e contatos</button>';
-    html += '<div class="footnote">Piloto de navegação construído a partir de <strong>Competencias_GPA-2026_09_23.pptx</strong> (estrutura visual) e <strong>Mapa_competencias_GPA-2026_09_09.xlsx</strong> (competências por subdivisão, aba “Organização equipes”). Nomes de pesquisadores responsáveis são reais; e-mail, telefone e associação às áreas de competência estão sendo preenchidos aos poucos — campos vazios aparecem como pendentes. Tamanhos de mercado citam a fonte e o nível de confiança de cada número; quando um dado não foi localizado com confiança, isso é declarado explicitamente em vez de estimado.</div>';
-    appEl.innerHTML = html;
-    var btnEq = document.getElementById('btnEquipe');
-    if(btnEq) btnEq.addEventListener('click', openTeamPanel);
-  }
-
   // Replaces the original sparse landing view with three clear entry points.
   function renderHome(){
     var html = '';
@@ -284,7 +272,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     html += homeEntryHtml('sector', 'Setores de aplica&ccedil;&atilde;o', 'Encontre caminhos de P&amp;D conectados a mercados, produtos e desafios reais.', DATA.sectorsRight.length, 'setores mapeados');
     html += '</div>';
     html += '<div class="home-secondary"><div class="processos-note"><strong>Como navegar:</strong> abra uma entrada, selecione um card e use os links de conex&otilde;es para atravessar o mapa sem perder o contexto.</div>';
-    html += '<button class="team-home-btn" id="btnEquipe">&#128101; Ver equipe de pesquisa e contatos</button></div>';
+    html += '</div><section class="home-contacts"><h3>Contatos da gerência e da coordenação</h3><div class="contact-grid">'+homeContacts().map(contactCardHtml).join('')+'</div></section>';
     html += '<div class="footnote">Piloto de navega&ccedil;&atilde;o constru&iacute;do a partir dos materiais de refer&ecirc;ncia do projeto. Campos ainda n&atilde;o preenchidos aparecem como pendentes.</div>';
     appEl.innerHTML = html;
     appEl.querySelectorAll('[data-home-entry]').forEach(function(button){
@@ -300,8 +288,6 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     appEl.querySelectorAll('[data-home-add]').forEach(function(button){
       button.addEventListener('click', function(event){ event.stopPropagation(); var kind=button.getAttribute('data-home-add'); openEditPanel(kind === 'competence' ? 'competencia' : (kind === 'material' ? 'material' : 'setor'), '', true); });
     });
-    var btnEq = document.getElementById('btnEquipe');
-    if(btnEq) btnEq.addEventListener('click', openTeamPanel);
     var btnHomeFeedback = document.getElementById('btnHomeFeedback');
     if(btnHomeFeedback) btnHomeFeedback.addEventListener('click', function(){ openFeedbackPanel('mapa', 'geral', 'Mapa de Competencias Firjan SENAI'); });
     var btnViewFeedback = document.getElementById('btnViewFeedback');
@@ -724,95 +710,85 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     });
   }
 
-  function researchersForArea(areaOrCode){
-    var all = (DATA.leadResearchers||[]).concat(DATA.seniorResearchers||[]);
-    return all.filter(function(p){
-      return (p.areas||[]).some(function(a){
-        return a === areaOrCode || a === areaOrCode.replace(/[0-9]+$/, '');
-      });
+  function homeContacts(){
+    return (DATA.leadResearchers || []).filter(function(p){
+      return p.nome === 'Antonio Augusto Fidalgo Neto' || /coordenador/i.test(p.cargo || '');
     });
   }
 
-  function openSubResearchersPanel(letter, code, subTitle){
-    var matches = researchersForArea(letter + code).concat(researchersForArea(letter))
-      .filter(function(p, i, arr){ return arr.indexOf(p) === i; });
-    var html = '';
-    html += '<div class="panel-top"><div><span class="panel-eyebrow">Pesquisador(es) responsável(eis)</span><h3>'+letter+code+'. '+subTitle+'</h3></div>' +
-      '<button class="panel-close" data-close>&times;</button></div>';
-    if(matches.length === 0){
-      html += '<div class="empty-note">Ainda não há pesquisador associado a esta subdivisão. As associações estão sendo preenchidas na planilha de referência (abas 05 e 06) — enquanto isso, veja a equipe completa.</div>';
-      html += '<div class="cta-row"><button class="btn btn-ghost" data-open-team>Ver toda a equipe de pesquisa</button></div>';
-    } else {
-      matches.forEach(function(p){ html += researcherCardHtml(p); });
-    }
-    openPanel(html);
-    panel.querySelector('[data-close]').addEventListener('click', closePanel);
-    bindResearcherCardButtons();
-    var teamBtn = panel.querySelector('[data-open-team]');
-    if(teamBtn) teamBtn.addEventListener('click', openTeamPanel);
+  function contactCardHtml(p){
+    var names = p.nome.trim().split(/\s+/);
+    var initials = names[0][0] + (names.length > 1 ? names[names.length - 1][0] : '');
+    var role = (p.cargo || '').split(/\s+[·—]\s+/)[0];
+    return '<button type="button" class="inline-contact" data-contact="'+escapeHtml(p.nome)+'" aria-haspopup="dialog">'+
+      '<span class="contact-person"><span class="contact-initials" aria-hidden="true">'+escapeHtml(initials)+'</span>'+
+      '<span><strong>'+escapeHtml(p.nome)+'</strong><span class="contact-role">'+escapeHtml(role)+'</span></span></span></button>';
   }
 
-  function openTeamPanel(){
-    var html = '';
-    html += '<div class="panel-top"><div><span class="panel-eyebrow">Equipe de pesquisa</span><h3>Pesquisadores responsáveis</h3></div>' +
-      '<button class="panel-close" data-close>&times;</button></div>';
-    html += '<div class="section-block"><h4>Liderança / responsáveis diretos</h4>';
-    (DATA.leadResearchers||[]).forEach(function(p){ html += researcherCardHtml(p); });
-    html += '</div>';
-    html += '<div class="section-block"><h4>Pesquisadores III e IV</h4>';
-    if((DATA.seniorResearchers||[]).length === 0){
-      html += '<div class="empty-note">Lista pendente — será preenchida a partir da planilha de RH, filtrando os cargos Pesquisador III e Pesquisador IV.</div>';
-    } else {
-      (DATA.seniorResearchers||[]).forEach(function(p){ html += researcherCardHtml(p); });
-    }
-    html += '</div>';
-    openPanel(html);
-    panel.querySelector('[data-close]').addEventListener('click', closePanel);
-    bindResearcherCardButtons();
-  }
-
-  function initials(nome){
-    return nome.split(' ').filter(function(w){return w.length>2;}).slice(0,2).map(function(w){return w[0];}).join('').toUpperCase();
-  }
-
-  var AVATAR_PALETTE = ['#1B4B45','#3D6FA8','#7A4FA3','#B15A8A','#C08A2E','#3E8E4F','#9C4A3C'];
-  function avatarColor(nome){
-    var h = 0;
-    for(var i=0;i<nome.length;i++){ h = (h*31 + nome.charCodeAt(i)) % AVATAR_PALETTE.length; }
-    return AVATAR_PALETTE[h];
-  }
-
-  function researcherCardHtml(p){
-    var areasHtml = (p.areas && p.areas.length) ?
-      '<div class="tag-list" style="margin-top:6px">'+p.areas.map(function(a){return '<span class="tag">'+a+'</span>';}).join('')+'</div>' :
-      '<p class="pending-field">Área(s) de competência: a associar</p>';
-    var emailOk = !!(p.email && p.email.trim());
-    var waOk = !!(p.telefone && p.telefone.trim());
-    var mailHref = emailOk ? ('mailto:'+p.email.trim()+'?subject='+encodeURIComponent('Contato — Mapa de Competências GPA')) : '#';
-    var waDigits = waOk ? p.telefone.replace(/[^0-9]/g,'') : '';
-    var waHref = waOk ? ('https://wa.me/'+waDigits+'?text='+encodeURIComponent('Olá '+p.nome.split(' ')[0]+', estou entrando em contato a partir do Mapa de Competências GPA.')) : '#';
-    return '<div class="researcher">' +
-      '<div class="avatar" style="background:'+avatarColor(p.nome)+'">'+initials(p.nome)+'</div>' +
-      '<div class="researcher-info">' +
-        '<p class="r-name">'+p.nome+'</p>' +
-        '<p class="r-role">'+(p.cargo || '<span class="pending-field">Cargo a preencher</span>')+'</p>' +
-        (emailOk ? '' : '<p class="pending-field">E-mail: a preencher</p>') +
-        (waOk ? '' : '<p class="pending-field">Telefone: a preencher</p>') +
-        areasHtml +
-      '</div></div>' +
-      '<div class="contact-actions">' +
-        '<button class="contact-btn mail" data-mail="'+mailHref+'" '+(emailOk?'':'disabled')+'>&#9993; E-mail</button>' +
-        '<button class="contact-btn wa" data-wa="'+waHref+'" '+(waOk?'':'disabled')+'>&#128172; WhatsApp</button>' +
-      '</div>';
-  }
-
-  function bindResearcherCardButtons(){
-    panel.querySelectorAll('[data-mail]:not([disabled])').forEach(function(b){
-      b.addEventListener('click', function(){ window.open(b.getAttribute('data-mail'), '_blank'); });
+  document.addEventListener('click', function(event){
+    var card = event.target.closest('[data-contact]');
+    if(!card) return;
+    var person = (DATA.leadResearchers || []).concat(DATA.seniorResearchers || []).find(function(p){
+      return p.nome === card.dataset.contact;
     });
-    panel.querySelectorAll('[data-wa]:not([disabled])').forEach(function(b){
-      b.addEventListener('click', function(){ window.open(b.getAttribute('data-wa'), '_blank'); });
+    if(!person) return;
+    var dialog = document.createElement('dialog');
+    dialog.className = 'contact-dialog';
+    dialog.setAttribute('aria-labelledby', 'contact-dialog-name');
+    var email = (person.email || '').trim();
+    var attributes = (person.cargo || '').split(/\s*[·—]\s*/).filter(Boolean);
+    if(person.setor && !attributes.includes(person.setor)) attributes.push(person.setor);
+    dialog.innerHTML = '<button type="button" class="contact-close" aria-label="Fechar">×</button>'+
+      '<h2 id="contact-dialog-name">'+escapeHtml(person.nome)+'</h2>'+
+      attributes.map(function(attribute){ return '<p>'+escapeHtml(attribute)+'</p>'; }).join('')+
+      '<div class="inline-contact-actions"><span><span aria-hidden="true">✉</span> <span class="contact-sr">E-mail</span> '+
+      (email ? '<a href="mailto:'+escapeHtml(email)+'">'+escapeHtml(email)+'</a>' : 'A definir')+
+      '</span><span><span aria-hidden="true">☎</span> <span class="contact-sr">Telefone</span> A definir</span></div>';
+    document.body.appendChild(dialog);
+    dialog.querySelector('button').onclick = function(){ dialog.close(); };
+    dialog.addEventListener('close', function(){ dialog.remove(); card.focus(); });
+    dialog.showModal();
+  });
+
+  function contactGroup(p){
+    var text = (p.setor || p.cargo || '').toUpperCase();
+    if(text.indexOf('CIS SO') !== -1) return 'CIS';
+    if(text.indexOf('INTEL TECN') !== -1) return 'Intelig.';
+    if(text.indexOf('DESENV AVANC') !== -1) return 'DAP';
+    if(text.indexOf('ISI BIOTECNOLOGIA') !== -1) return 'Biotec';
+    if(text.indexOf('INOVACAO QUIMICA') !== -1) return 'Química e Tecnologias Aplicadas';
+    return null;
+  }
+
+  // Inferred routing uses the registered department, never an invented personal specialty.
+  // Explicit area associations take priority when the source data supplies them.
+  function contactsForCompetence(code, description){
+    var sub = DATA.competencias[code[0]].subdivisions[code];
+    var text = description.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    var groups = [];
+    if(/enzim|ferment|genom|genetic|dna|rna|celul|microbio|biolog|biopro|biorrem|biofilm|fago/.test(text)) groups.push('Biotec');
+    if(/catalis|catalit|cromatograf|espectroscop|quimic|sintese|analitic/.test(text)) groups.push('Química e Tecnologias Aplicadas');
+    if(/reator|pirol|gasifica|eletro|plasma|hidrotrat|destila|membrana|filtra|microfluid|processo|piloto/.test(text)) groups.push('DAP');
+    if(/digital|model|simula|dados|inteligencia|econom|mercado|patente|prospect|logistic|sustentabilidade/.test(text)) groups.push('Intelig.');
+    if(/saude|epidem|clinico|paciente|ocupacional/.test(text)) groups.push('CIS');
+    groups = groups.filter(function(g){ return (sub.teams || []).indexOf(g) !== -1; });
+    if(!groups.length) groups = sub.teams || [];
+    return (DATA.leadResearchers || []).concat(DATA.seniorResearchers || []).filter(function(p){
+      if(p.situacao && p.situacao !== 'Ativo') return false;
+      if((p.areas || []).length) return p.areas.indexOf(code) !== -1 || p.areas.indexOf(code[0]) !== -1;
+      return groups.indexOf(contactGroup(p)) !== -1;
     });
+  }
+
+  function competenceContactsHtml(code, description){
+    var people = contactsForCompetence(code, description);
+    var fallback = !people.length;
+    if(fallback) people = homeContacts().filter(function(p){ return p.nome === 'Antonio Augusto Fidalgo Neto'; });
+    return '<section class="competence-contacts" aria-label="Contatos relacionados"><h4>Contatos relacionados</h4>'+
+      (fallback ? '<p>Para esta competência, fale com a gerência.</p>' : '')+
+      '<div class="contact-pills">'+people.map(function(p){
+        return '<button type="button" class="contact-pill" data-contact="'+escapeHtml(p.nome)+'" aria-haspopup="dialog">'+escapeHtml(p.nome)+'</button>';
+      }).join('')+'</div></section>';
   }
 
   function rdLayerHtml(kind, name){
@@ -1017,14 +993,14 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       var summary = (DATA.competenceSummaries || {})[b] || b;
       var keepOriginalTitle = (letter === 'A' && (code === 'A3' || code === 'A13')) || (letter === 'B' && code === 'B3');
       var subtitle = keepOriginalTitle ? summary : (cardTitle ? b : summary);
-      return '<li class="competence-row"><div class="competence-description">'+
+      return '<li class="competence-pair"><article class="competence-row"><div class="competence-description">'+
         '<h3>'+escapeHtml(cardTitle || summary)+'</h3>'+
         (((cardTitle && !keepOriginalTitle) || summary !== b) ? '<p class="competence-subtitle">'+escapeHtml(subtitle)+'</p>' : '')+
-        '</div><button type="button" class="card-edit-button bullet-edit-button" data-bullet-edit="'+escapeHtml(b)+'" data-bullet-index="'+bulletIndex+'">Editar card</button></li>';
+        '</div><button type="button" class="card-edit-button bullet-edit-button" data-bullet-edit="'+escapeHtml(b)+'" data-bullet-index="'+bulletIndex+'">Editar card</button></article>'+competenceContactsHtml(code, b)+'</li>';
     }).join('');
     var relatedA3Cards = relatedCompetences.filter(function(item){ return item.displayTitle; }).map(function(item){
-      return '<li class="competence-row related-source-card" data-related-comp="'+item.codigo+'"><div class="competence-description">'+
-        '<h3>'+escapeHtml(item.displayTitle)+'</h3><p class="competence-subtitle">'+escapeHtml(item.racional)+'</p></div></li>';
+      return '<li class="competence-pair"><article class="competence-row related-source-card" data-related-comp="'+item.codigo+'"><div class="competence-description">'+
+        '<h3>'+escapeHtml(item.displayTitle)+'</h3><p class="competence-subtitle">'+escapeHtml(item.racional)+'</p></div></article>'+competenceContactsHtml(item.codigo, item.displayTitle+' '+item.racional)+'</li>';
     }).join('');
     if(code === 'B3') bulletsHtml += relatedA3Cards;
     var html = '';
@@ -1062,7 +1038,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       });
       html += '</div>';
     }
-    html += '<div class="cta-row"><button class="btn btn-primary" id="btnCompResearchers">Contato do(s) pesquisador(es) responsável(eis)</button><button class="btn btn-primary" id="btnCompAddBullet">Adicionar card nesta competência</button><button class="btn btn-ghost" id="btnCompFeedback">Dar opinião sobre esta competência</button></div>';
+    html += '<div class="cta-row"><button class="btn btn-primary" id="btnCompAddBullet">Adicionar card nesta competência</button><button class="btn btn-ghost" id="btnCompFeedback">Dar opinião sobre esta competência</button></div>';
     appEl.innerHTML = html;
     appEl.querySelector('[data-nav="rdcat2"]').addEventListener('click', function(){
       goSection(letter);
@@ -1074,16 +1050,14 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       });
     });
     appEl.querySelectorAll('[data-related-comp]').forEach(function(button){
-      button.addEventListener('click', function(){
+      button.addEventListener('click', function(event){
+        if(event.target.closest('.competence-contacts')) return;
         var relatedCode = button.getAttribute('data-related-comp');
         goCompetenciaFull(relatedCode[0], relatedCode);
       });
     });
     appEl.querySelectorAll('[data-bullet-edit]').forEach(function(button){
       button.addEventListener('click', function(){ openBulletPanel(letter, code, button.getAttribute('data-bullet-edit'), button.getAttribute('data-bullet-index'), false); });
-    });
-    document.getElementById('btnCompResearchers').addEventListener('click', function(){
-      openSubResearchersPanel(letter, code, sub.title);
     });
     document.getElementById('btnCompAddBullet').addEventListener('click', function(){
       openBulletPanel(letter, code, '', '', true);
