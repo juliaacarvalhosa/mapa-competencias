@@ -150,3 +150,17 @@ class PilotNavigationTests(TestCase):
         meta = self.client.get('/').context['pilot_data']['cardMeta']['material:Inicial']
         self.assertEqual([v.get('name') for v in meta['history']],
                          ['Criadora', None, 'Outro editor', 'Editora'])
+
+    def test_database_rejects_blank_card_authors(self):
+        from django.db import IntegrityError, transaction
+
+        for creator, editor in [('', 'Editor'), ('  ', 'Editor'), ('Creator', '\t')]:
+            with self.subTest(creator=creator, editor=editor):
+                with self.assertRaises(IntegrityError), transaction.atomic():
+                    MapCard.objects.create(item_type='material', item_key='Teste', created_by=creator,
+                                           updated_by=editor)
+        card = MapCard.objects.create(item_type='material', item_key='Teste', created_by='Creator',
+                                      updated_by='Editor')
+        for field in ('created_by', 'updated_by'):
+            with self.assertRaises(IntegrityError), transaction.atomic():
+                MapCard.objects.filter(pk=card.pk).update(**{field: ''})
