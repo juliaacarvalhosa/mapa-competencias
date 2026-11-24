@@ -1,4 +1,6 @@
 import json
+import re
+from uuid import uuid4
 from hashlib import sha256
 from django.conf import settings
 from django.http import JsonResponse
@@ -21,11 +23,12 @@ def load_pilot_data():
     with (settings.BASE_DIR / 'data' / 'pilot_map.json').open(encoding='utf-8') as source:
         data = json.load(source)
     data['cardMeta'] = {}
+    data['contacts'] = {}
     for card in MapCard.objects.all():
         history = list(card.history or [])
         is_user_added = card.is_new or any(version.get('action') == 'added' for version in history)
         base_snapshot = None
-        if not is_user_added:
+        if not is_user_added and card.item_type != 'contato':
             if card.item_type == 'competencia':
                 base_snapshot = data.get('competencias', {}).get(card.item_key[:1], {}).get('subdivisions', {}).get(card.item_key)
             else:
@@ -53,7 +56,9 @@ def load_pilot_data():
             'updated_at': card.updated_at.strftime('%d/%m/%Y %H:%M'),
             'history': history,
         }
-        if card.item_type == 'competencia':
+        if card.item_type == 'contato':
+            data['contacts'][card.item_key] = card.data
+        elif card.item_type == 'competencia':
             letter = card.data.get('letter', card.item_key[:1])
             subdivisions = data.setdefault('competencias', {}).setdefault(letter, {}).setdefault('subdivisions', {})
             if is_user_added or card.item_key in subdivisions:
@@ -115,7 +120,7 @@ def edit_card(request):
     item_type = str(payload.get('item_type', '')).strip()
     action = str(payload.get('action', 'update')).strip()
     fields = payload.get('fields') or {}
-    if item_type not in ('competencia', 'material', 'setor') or action not in ('update', 'add', 'add_bullet', 'update_bullet'):
+    if item_type not in ('competencia', 'material', 'setor', 'contato') or (action not in ('update', 'add', 'add_bullet', 'update_bullet') and (item_type, action) != ('contato', 'delete')):
         return JsonResponse({'error': 'Tipo de card ou operação inválida.'}, status=400)
     data = load_pilot_data()
 
@@ -145,7 +150,29 @@ def edit_card(request):
             base_snapshot = next((item for item in base_collection if item.get('nome') == key), None)
         if base_snapshot is not None:
             base_snapshot = json.loads(json.dumps(base_snapshot))
-        if item_type == 'competencia':
+        if item_type == 'contato':
+            parts = key.split('/')
+            if action not in ('add', 'update', 'delete') or len(parts) != (2 if action == 'add' else 3):
+                raise ValueError('Card de contatos inválido.')
+            code, index = parts[:2]
+            if code not in data['competencias'].get(code[:1], {}).get('subdivisions', {}) or not re.fullmatch(r'[0-9]{1,5}', index):
+                raise ValueError('Competência inválida.')
+            if action == 'add':
+                stored_key = f'{key}/{uuid4().hex}'
+            else:
+                stored_key = key
+                base_snapshot = data['contacts'].get(key)
+                if base_snapshot is None:
+                    directory = data['leadResearchers'] + data['seniorResearchers']
+                    source = parts[2]
+                    if not re.fullmatch(r'[0-9]{1,5}', source) or int(source) >= len(directory):
+                        raise ValueError('Contato não encontrado.')
+                    base_snapshot = directory[int(source)]
+            if action == 'delete':
+                stored_data = {**base_snapshot, 'deleted': True}
+            else:
+                stored_data = {field: text(field, field == 'nome', 255) for field in ('nome', 'cargo', 'setor', 'email', 'telefone')}
+        elif item_type == 'competencia':
             letter = str(fields.get('letter') or key[:1] or 'A').strip().upper()
             code = str(fields.get('code') or key).strip().upper()
             if action == 'add':
@@ -209,7 +236,7 @@ def edit_card(request):
         elif item_type == 'competencia':
             stored_key = code if action == 'add' else key
             stored_data = {'letter': letter, 'title': text('title', True, 255), 'bullets': lines('bullets'), 'teams': lines('teams')}
-        else:
+        elif item_type != 'contato':
             stored_key = name if action == 'add' else key
             stored_data = {'nome': name if action == 'add' else text('nome', True, 255), 'explicacao': text('explicacao'), 'produtos': lines('produtos')}
             if action == 'add':
@@ -219,7 +246,8 @@ def edit_card(request):
         initial_history = []
         if base_snapshot is not None and action != 'add':
             initial_history.append({'data': base_snapshot, 'name': None, 'action': 'original', 'created_at': now_label})
-        current_version = {'data': json.loads(json.dumps(stored_data)), 'name': editor, 'action': 'added' if action == 'add' else 'edited', 'created_at': now_label}
+        version_action = {'add': 'added', 'delete': 'deleted'}.get(action, 'edited')
+        current_version = {'data': json.loads(json.dumps(stored_data)), 'name': editor, 'action': version_action, 'created_at': now_label}
         record, created = MapCard.objects.get_or_create(item_type=item_type, item_key=stored_key, defaults={'data': stored_data, 'is_new': action == 'add', 'created_by': editor, 'updated_by': editor, 'history': initial_history + [current_version]})
         if not created:
             history = list(record.history or [])
@@ -234,7 +262,7 @@ def edit_card(request):
         else:
             record.updated_by = editor
             record.save(update_fields=['updated_by', 'updated_at'])
-        if original_key and stored_key != original_key:
+        if item_type != 'contato' and original_key and stored_key != original_key:
             MapCard.objects.filter(item_type=item_type, item_key=original_key).exclude(pk=record.pk).delete()
     except ValueError as error:
         return JsonResponse({'error': str(error)}, status=400)

@@ -498,6 +498,10 @@ button.inline-contact:hover, button.inline-contact:focus-visible {
 .contact-dialog { border-top: 4px solid var(--firjan-orange); }
 .contact-dialog h2 { margin: 0 2rem .8rem 0; font-family: var(--serif); font-weight: 700; }
 .contact-dialog p { margin: .4rem 0; line-height: 1.5; color: var(--ink-soft); }
+.delete-contact-dialog { border-top-color: #af3434; }
+.delete-contact-dialog form { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+.delete-contact-confirm { background: #af3434; color: #fff; }
+.delete-contact-confirm:hover { background: #8b2929; }
 .contact-dialog .inline-contact-actions { margin-top: 1rem; gap: 8px; flex-direction: column; align-items: center; text-align: center; }
 .contact-close { float: right; border: 0; border-radius: 50%; width: 2rem; height: 2rem; background: var(--teal-mist); color: var(--teal); font-size: 1.3rem; cursor: pointer; }
 .contact-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
@@ -511,6 +515,11 @@ button.inline-contact:hover, button.inline-contact:focus-visible {
 }
 .competence-contacts h4 { margin: 0 0 10px; text-transform: uppercase; }
 .contact-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.competence-contacts [data-add-contact] {
+  margin-top: 16px;
+  padding: 10px 16px;
+  font-size: 13px;
+}
 .contact-pill {
   max-width: 100%; padding: 7px 14px; border-radius: 999px;
   border: 1px solid var(--line); color: var(--teal-deep); background: var(--teal-mist);
@@ -519,3 +528,9 @@ button.inline-contact:hover, button.inline-contact:focus-visible {
 .contact-pill:hover, .contact-pill:focus-visible {
   border-color: var(--firjan-orange); box-shadow: inset 3px 0 var(--firjan-orange);
 }
+
+.contact-entry { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; }
+
+.contact-history { margin-top: 12px; font-size: 13px; }
+.contact-history summary { cursor: pointer; }
+.contact-history ul { padding-inline-start: 20px; }

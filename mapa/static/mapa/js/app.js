@@ -495,24 +495,48 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     window.location.assign(window.location.pathname + query);
   }
 
-  function openEditPanel(itemType, itemKey, adding){
+  function confirmContactDeletion(name){
+    var dialog = document.createElement('dialog');
+    dialog.className = 'contact-dialog delete-contact-dialog';
+    dialog.setAttribute('aria-labelledby', 'delete-contact-title');
+    dialog.setAttribute('aria-describedby', 'delete-contact-description');
+    dialog.innerHTML = '<h2 id="delete-contact-title">Excluir contato?</h2>'+
+      '<p id="delete-contact-description"><strong>'+escapeHtml(name)+'</strong> será removido da lista de contatos deste card. A exclusão ficará registrada no histórico.</p>'+
+      '<form method="dialog"><button class="btn btn-ghost" value="cancel" autofocus>Cancelar</button>'+
+      '<button class="btn delete-contact-confirm" value="delete">Excluir contato</button></form>';
+    document.body.appendChild(dialog);
+    return new Promise(function(resolve){
+      dialog.addEventListener('close', function(){
+        dialog.remove();
+        resolve(dialog.returnValue === 'delete');
+      }, {once:true});
+      dialog.showModal();
+    });
+  }
+
+  function openEditPanel(itemType, itemKey, adding, contact){
+    var editingContact = itemType === 'contato';
+    var chooseType = adding && !editingContact;
     var meta = cardMeta(itemType, itemKey);
     var history = orderedHistory(meta);
     var originalVersionIndex = history.findIndex(function(version){ return isOriginalHistoryVersion(version, meta); });
     var selectedVersionIndex = adding ? -1 : (originalVersionIndex >= 0 ? originalVersionIndex : history.length - 1);
+    if(editingContact) selectedVersionIndex = history.length - 1;
     var card = null;
     if(!adding){
-      if(itemType === 'competencia') card = DATA.competencias[itemKey[0]].subdivisions[itemKey];
+      if(editingContact) card = contact;
+      else if(itemType === 'competencia') card = DATA.competencias[itemKey[0]].subdivisions[itemKey];
       else card = (itemType === 'material' ? DATA.materialsLeft : DATA.sectorsRight).find(function(item){ return item.nome === itemKey; });
     }
     card = card || {title:'', bullets:[], teams:[], nome:'', explicacao:'', produtos:[]};
     var title = adding ? 'Adicionar card' : 'Editar card';
+    if(editingContact) title = adding ? 'Adicionar contato' : 'Editar contato';
     var value = function(text){ return escapeHtml(text || ''); };
     var html = '<div class="panel-top"><div><span class="panel-eyebrow">Edi&ccedil;&atilde;o protegida</span><h3>'+title+'</h3></div><button class="panel-close" data-close aria-label="Fechar">&times;</button></div>';
     html += '<p class="plain-p">Informe a palavra de seguran&ccedil;a para autorizar esta altera&ccedil;&atilde;o.</p>';
     html += '<form id="card-edit-form" class="main-feedback-form"><label>Seu nome <span class="required-label">(obrigat&oacute;rio)</span><input name="name" maxlength="120" required placeholder="Quem est&aacute; fazendo esta altera&ccedil;&atilde;o?"></label><label>Palavra de seguran&ccedil;a<input name="password" type="password" required autocomplete="current-password"></label>';
-    if(adding) html += '<div class="card-type-picker"><span class="card-type-picker-label">Tipo de card</span><div class="card-type-grid"><button type="button" class="card-type-option is-selected" data-card-type="competencia"><span class="card-type-icon">A</span><span><strong>Compet&ecirc;ncia</strong><small>Uma capacidade t&eacute;cnica do mapa</small></span></button><button type="button" class="card-type-option" data-card-type="material"><span class="card-type-icon">M</span><span><strong>Mat&eacute;ria-prima</strong><small>Um insumo ou recurso de entrada</small></span></button><button type="button" class="card-type-option" data-card-type="setor"><span class="card-type-icon">S</span><span><strong>Setor</strong><small>Uma aplica&ccedil;&atilde;o ou mercado</small></span></button></div><input type="hidden" name="item_type" value="competencia"></div>';
-    html += '<div class="version-selection-note" data-version-selection></div><div class="edit-fields" data-edit-fields></div>'+historyHtml(itemType, itemKey)+'<p class="feedback-status" role="status"></p><button class="btn btn-primary" type="submit">Salvar altera&ccedil;&atilde;o</button></form>';
+    if(chooseType) html += '<div class="card-type-picker"><span class="card-type-picker-label">Tipo de card</span><div class="card-type-grid"><button type="button" class="card-type-option is-selected" data-card-type="competencia"><span class="card-type-icon">A</span><span><strong>Compet&ecirc;ncia</strong><small>Uma capacidade t&eacute;cnica do mapa</small></span></button><button type="button" class="card-type-option" data-card-type="material"><span class="card-type-icon">M</span><span><strong>Mat&eacute;ria-prima</strong><small>Um insumo ou recurso de entrada</small></span></button><button type="button" class="card-type-option" data-card-type="setor"><span class="card-type-icon">S</span><span><strong>Setor</strong><small>Uma aplica&ccedil;&atilde;o ou mercado</small></span></button></div><input type="hidden" name="item_type" value="competencia"></div>';
+    html += '<div class="version-selection-note" data-version-selection></div><div class="edit-fields" data-edit-fields></div>'+historyHtml(itemType, itemKey)+'<p class="feedback-status" role="status"></p><button class="btn btn-primary" type="submit">Salvar altera&ccedil;&atilde;o</button>'+ (editingContact && !adding ? '<button type="submit" class="btn btn-ghost" data-delete-contact formnovalidate>Excluir contato deste card</button>' : '')+'</form>';
     openPanel(html); overlay.classList.add('feedback-overlay');
     var form = panel.querySelector('#card-edit-form'), fields = panel.querySelector('[data-edit-fields]');
     var emptyCard = {title:'',bullets:[],teams:[],nome:'',explicacao:'',produtos:[]};
@@ -525,7 +549,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       // The first version of a user-created card is its initial content, not
       // an edit from an empty card. Only later versions can have changed fields.
       if(index < 0 || !history[index] || history[index].action === 'original' || history[index].action === 'added') return [];
-      var fieldNames = type === 'competencia' ? ['title','bullets','teams'] : ['nome','explicacao','produtos'];
+      var fieldNames = editingContact ? Object.keys(contactLabels) : type === 'competencia' ? ['title','bullets','teams'] : ['nome','explicacao','produtos'];
       var before = index > 0 ? (history[index - 1].data || {}) : {};
       var after = history[index].data || {};
       return fieldNames.filter(function(name){ return normalized(before[name]) !== normalized(after[name]); });
@@ -551,12 +575,15 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     }
     function renderFields(type){
       var current = adding ? emptyCard : versionData(selectedVersionIndex, type);
-       if(type === 'competencia') fields.innerHTML = '<label>Eixo do mapa<select name="letter" required><option value="A" '+(value(adding ? 'A' : itemKey[0])==='A'?'selected':'')+'>A &mdash; Tecnologias e Processos</option><option value="B" '+(value(adding ? 'A' : itemKey[0])==='B'?'selected':'')+'>B &mdash; Conserva&ccedil;&atilde;o e Monitoramento</option><option value="C" '+(value(adding ? 'A' : itemKey[0])==='C'?'selected':'')+'>C &mdash; Inova&ccedil;&atilde;o em Sa&uacute;de</option><option value="D" '+(value(adding ? 'A' : itemKey[0])==='D'?'selected':'')+'>D &mdash; Biotecnologia</option><option value="E" '+(value(adding ? 'A' : itemKey[0])==='E'?'selected':'')+'>E &mdash; Circularidade</option></select></label><label>C&oacute;digo<input name="code" maxlength="12" required placeholder="Ex.: C1" value="'+value(adding ? '' : itemKey)+'"></label><label data-version-field="title">T&iacute;tulo <span data-change-marker hidden>Alterado</span><input name="title" maxlength="255" required value="'+value(current.title)+'"></label><label data-version-field="bullets">Compet&ecirc;ncias detalhadas <span data-change-marker hidden>Alterado</span><textarea name="bullets" rows="7" placeholder="Uma por linha">'+value((current.bullets||[]).join('\n'))+'</textarea></label><label data-version-field="teams">Equipes respons&aacute;veis <span data-change-marker hidden>Alterado</span><textarea name="teams" rows="3" placeholder="Uma por linha">'+value((current.teams||[]).join('\n'))+'</textarea></label>';
+      if(editingContact) fields.innerHTML = Object.keys(contactLabels).map(function(key){
+        return '<label data-version-field="'+key+'">'+contactLabels[key]+' <span data-change-marker hidden>Alterado</span><input name="'+key+'" maxlength="255" type="'+(key === 'email' ? 'email' : key === 'telefone' ? 'tel' : 'text')+'" '+(key === 'nome' ? 'required' : '')+' value="'+value(current[key])+'"></label>';
+      }).join('');
+      else if(type === 'competencia') fields.innerHTML = '<label>Eixo do mapa<select name="letter" required><option value="A" '+(value(adding ? 'A' : itemKey[0])==='A'?'selected':'')+'>A &mdash; Tecnologias e Processos</option><option value="B" '+(value(adding ? 'A' : itemKey[0])==='B'?'selected':'')+'>B &mdash; Conserva&ccedil;&atilde;o e Monitoramento</option><option value="C" '+(value(adding ? 'A' : itemKey[0])==='C'?'selected':'')+'>C &mdash; Inova&ccedil;&atilde;o em Sa&uacute;de</option><option value="D" '+(value(adding ? 'A' : itemKey[0])==='D'?'selected':'')+'>D &mdash; Biotecnologia</option><option value="E" '+(value(adding ? 'A' : itemKey[0])==='E'?'selected':'')+'>E &mdash; Circularidade</option></select></label><label>C&oacute;digo<input name="code" maxlength="12" required placeholder="Ex.: C1" value="'+value(adding ? '' : itemKey)+'"></label><label data-version-field="title">T&iacute;tulo <span data-change-marker hidden>Alterado</span><input name="title" maxlength="255" required value="'+value(current.title)+'"></label><label data-version-field="bullets">Compet&ecirc;ncias detalhadas <span data-change-marker hidden>Alterado</span><textarea name="bullets" rows="7" placeholder="Uma por linha">'+value((current.bullets||[]).join('\n'))+'</textarea></label><label data-version-field="teams">Equipes respons&aacute;veis <span data-change-marker hidden>Alterado</span><textarea name="teams" rows="3" placeholder="Uma por linha">'+value((current.teams||[]).join('\n'))+'</textarea></label>';
       else fields.innerHTML = '<label data-version-field="nome">Nome <span data-change-marker hidden>Alterado</span><input name="nome" maxlength="255" required value="'+value(current.nome)+'"></label><label data-version-field="explicacao">Explica&ccedil;&atilde;o <span data-change-marker hidden>Alterado</span><textarea name="explicacao" rows="4">'+value(current.explicacao)+'</textarea></label><label data-version-field="produtos">Produtos ou aplica&ccedil;&otilde;es <span data-change-marker hidden>Alterado</span><textarea name="produtos" rows="5" placeholder="Um por linha">'+value((current.produtos||[]).join('\n'))+'</textarea></label>';
       updateVersionMarkers(type);
     }
     renderFields(itemType);
-    if(adding) panel.querySelectorAll('[data-card-type]').forEach(function(button){
+    if(chooseType) panel.querySelectorAll('[data-card-type]').forEach(function(button){
       button.addEventListener('click', function(){
         panel.querySelectorAll('[data-card-type]').forEach(function(option){ option.classList.remove('is-selected'); });
         button.classList.add('is-selected');
@@ -579,8 +606,14 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       renderFields(itemType);
     });
     panel.querySelector('[data-close]').addEventListener('click', closePanel);
-    form.addEventListener('submit', function(event){
-      event.preventDefault(); var type = adding ? form.elements.item_type.value : itemType, payload = {name:form.elements.name.value, password:form.elements.password.value, action:adding?'add':'update', item_type:type, item_key:itemKey, fields:{}};
+    form.addEventListener('submit', async function(event){
+      event.preventDefault();
+      var deleting = event.submitter && event.submitter.hasAttribute('data-delete-contact');
+      if(deleting){
+        if(!form.elements.name.reportValidity() || !form.elements.password.reportValidity()) return;
+        if(!await confirmContactDeletion(contact.nome)) return;
+      }
+      var type = chooseType ? form.elements.item_type.value : itemType, payload = {name:form.elements.name.value, password:form.elements.password.value, action:deleting?'delete':(adding?'add':'update'), item_type:type, item_key:itemKey, fields:{}};
       new FormData(form).forEach(function(v,k){ if(k !== 'password' && k !== 'item_type') payload.fields[k] = (k === 'bullets' || k === 'teams' || k === 'produtos') ? v.split(/\r?\n/) : v; });
       var status = form.querySelector('.feedback-status'); status.textContent = 'Salvando...';
       if(type === 'competencia' && payload.fields.code && payload.fields.code.trim().toUpperCase().charAt(0) !== payload.fields.letter){ status.textContent = 'O c&oacute;digo precisa come&ccedil;ar com a letra do eixo selecionado.'; return; }
@@ -596,6 +629,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     var history = orderedHistory(meta);
     if(!history.length) return '';
     var labels = {title:'t&iacute;tulo', bullets:'compet&ecirc;ncias detalhadas', teams:'equipes', nome:'nome', explicacao:'explica&ccedil;&atilde;o', produtos:'produtos/aplica&ccedil;&otilde;es'};
+    if(type === 'contato') labels = contactLabels;
     function changedAt(index){
       if(index === 0 || history[index].action === 'original') return '';
       var before = history[index - 1].data || {}, after = history[index].data || {};
@@ -662,7 +696,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     if(lastFocusedElement && typeof lastFocusedElement.focus === 'function') lastFocusedElement.focus();
   }
   overlay.addEventListener('click', function(e){ if(e.target === overlay) closePanel(); });
-  document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closePanel(); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !document.querySelector('dialog[open]')) closePanel(); });
 
   function openSubPanel(letter, code){
     goCompetenciaFull(letter, code);
@@ -710,6 +744,11 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     });
   }
 
+  var contactLabels = {nome:'Nome', cargo:'Cargo', setor:'Setor', email:'E-mail', telefone:'Telefone'};
+  function directoryPeople(){
+    return (DATA.leadResearchers || []).concat(DATA.seniorResearchers || []);
+  }
+
   function homeContacts(){
     return (DATA.leadResearchers || []).filter(function(p){
       return p.nome === 'Antonio Augusto Fidalgo Neto' || /coordenador/i.test(p.cargo || '');
@@ -726,9 +765,19 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   }
 
   document.addEventListener('click', function(event){
+    var add = event.target.closest('[data-add-contact]');
+    if(add){ openEditPanel('contato', add.dataset.addContact, true); return; }
+    var editContact = event.target.closest('[data-edit-contact]');
+    if(editContact){
+      var contactKey = editContact.dataset.editContact;
+      var current = (DATA.contacts || {})[contactKey] || directoryPeople()[Number(contactKey.split('/')[2])];
+      openEditPanel('contato', contactKey, false, current);
+      return;
+    }
     var card = event.target.closest('[data-contact]');
     if(!card) return;
-    var person = (DATA.leadResearchers || []).concat(DATA.seniorResearchers || []).find(function(p){
+    var key = card.dataset.contactKey;
+    var person = (DATA.contacts || {})[key] || directoryPeople().find(function(p){
       return p.nome === card.dataset.contact;
     });
     if(!person) return;
@@ -743,7 +792,15 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       attributes.map(function(attribute){ return '<p>'+escapeHtml(attribute)+'</p>'; }).join('')+
       '<div class="inline-contact-actions"><span><span aria-hidden="true">✉</span> <span class="contact-sr">E-mail</span> '+
       (email ? '<a href="mailto:'+escapeHtml(email)+'">'+escapeHtml(email)+'</a>' : 'A definir')+
-      '</span><span><span aria-hidden="true">☎</span> <span class="contact-sr">Telefone</span> A definir</span></div>';
+      '</span><span><span aria-hidden="true">☎</span> <span class="contact-sr">Telefone</span> '+escapeHtml(person.telefone || 'A definir')+'</span></div>';
+    if(key){
+      var edit = document.createElement('button');
+      edit.type = 'button';
+      edit.className = 'card-edit-button';
+      edit.textContent = 'Editar contato';
+      edit.onclick = function(){ dialog.close(); openEditPanel('contato', key, false, person); };
+      dialog.appendChild(edit);
+    }
     document.body.appendChild(dialog);
     dialog.querySelector('button').onclick = function(){ dialog.close(); };
     dialog.addEventListener('close', function(){ dialog.remove(); card.focus(); });
@@ -780,15 +837,42 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     });
   }
 
-  function competenceContactsHtml(code, description){
+  function competenceContactsHtml(code, description, index){
+    var scope = code + '/' + index;
+    var saved = DATA.contacts || {};
     var people = contactsForCompetence(code, description);
     var fallback = !people.length;
     if(fallback) people = homeContacts().filter(function(p){ return p.nome === 'Antonio Augusto Fidalgo Neto'; });
+    var directory = directoryPeople();
+    var keys = people.map(function(person){ return scope+'/'+directory.indexOf(person); });
+    Object.keys(saved).forEach(function(key){
+      if(key.startsWith(scope+'/') && !keys.includes(key)) keys.push(key);
+    });
+    var deletions = [];
+    keys.forEach(function(key){
+      orderedHistory(cardMeta('contato', key)).forEach(function(version){
+        if(version.action === 'deleted') deletions.push(version);
+      });
+    });
+    var deletionHistory = deletions.length ? '<details class="contact-history"><summary>Histórico de exclusões ('+deletions.length+')</summary><ul>'+
+      deletions.map(function(version){
+        return '<li><strong>'+escapeHtml(version.data.nome)+'</strong> · Excluído por '+escapeHtml(version.name)+' em '+escapeHtml(version.created_at)+'</li>';
+      }).join('')+'</ul></details>' : '';
+    keys = keys.filter(function(key){ return !saved[key] || !saved[key].deleted; });
+    if(!keys.length) fallback = false;
+    if(fallback && keys.some(function(key){ return saved[key]; })){
+      keys = keys.filter(function(key){ return saved[key]; });
+      fallback = false;
+    }
     return '<section class="competence-contacts" aria-label="Contatos relacionados"><h4>Contatos relacionados</h4>'+
       (fallback ? '<p>Para esta competência, fale com a gerência.</p>' : '')+
-      '<div class="contact-pills">'+people.map(function(p){
-        return '<button type="button" class="contact-pill" data-contact="'+escapeHtml(p.nome)+'" aria-haspopup="dialog">'+escapeHtml(p.nome)+'</button>';
-      }).join('')+'</div></section>';
+      '<div class="contact-pills">'+keys.map(function(key){
+        var p = saved[key] || directory[Number(key.split('/')[2])];
+        var meta = cardMeta('contato', key);
+        var added = meta && (meta.is_new || orderedHistory(meta).some(function(version){ return version.action === 'added'; }));
+        var badge = added ? ' <span class="card-change-badge card-change-new">Adicionado</span>' : '';
+        return '<span class="contact-entry"><button type="button" class="contact-pill" data-contact-key="'+escapeHtml(key)+'" data-contact="'+escapeHtml(p.nome)+'" aria-haspopup="dialog">'+escapeHtml(p.nome)+badge+'</button><button type="button" class="card-edit-button" data-edit-contact="'+escapeHtml(key)+'" aria-label="Editar contato de '+escapeHtml(p.nome)+'">Editar</button></span>';
+      }).join('')+'</div><button type="button" class="card-edit-button" data-add-contact="'+escapeHtml(scope)+'">Adicionar contato</button>'+deletionHistory+'</section>';
   }
 
   function rdLayerHtml(kind, name){
@@ -996,11 +1080,11 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       return '<li class="competence-pair"><article class="competence-row"><div class="competence-description">'+
         '<h3>'+escapeHtml(cardTitle || summary)+'</h3>'+
         (((cardTitle && !keepOriginalTitle) || summary !== b) ? '<p class="competence-subtitle">'+escapeHtml(subtitle)+'</p>' : '')+
-        '</div><button type="button" class="card-edit-button bullet-edit-button" data-bullet-edit="'+escapeHtml(b)+'" data-bullet-index="'+bulletIndex+'">Editar card</button></article>'+competenceContactsHtml(code, b)+'</li>';
+        '</div><button type="button" class="card-edit-button bullet-edit-button" data-bullet-edit="'+escapeHtml(b)+'" data-bullet-index="'+bulletIndex+'">Editar card</button></article>'+competenceContactsHtml(code, b, bulletIndex)+'</li>';
     }).join('');
     var relatedA3Cards = relatedCompetences.filter(function(item){ return item.displayTitle; }).map(function(item){
       return '<li class="competence-pair"><article class="competence-row related-source-card" data-related-comp="'+item.codigo+'"><div class="competence-description">'+
-        '<h3>'+escapeHtml(item.displayTitle)+'</h3><p class="competence-subtitle">'+escapeHtml(item.racional)+'</p></div></article>'+competenceContactsHtml(item.codigo, item.displayTitle+' '+item.racional)+'</li>';
+        '<h3>'+escapeHtml(item.displayTitle)+'</h3><p class="competence-subtitle">'+escapeHtml(item.racional)+'</p></div></article>'+competenceContactsHtml(item.codigo, item.displayTitle+' '+item.racional, DATA.competencias[item.codigo[0]].subdivisions[item.codigo].bullets.indexOf(item.displayTitle))+'</li>';
     }).join('');
     if(code === 'B3') bulletsHtml += relatedA3Cards;
     var html = '';

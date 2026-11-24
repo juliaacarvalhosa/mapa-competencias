@@ -64,3 +64,22 @@ const invalid = render('?competencia=INVALID');
 assert(!invalid.classes.has('competence-page'));
 assert(!render('?eixo=A').classes.has('competence-page'));
 console.log(`${count} competence pages: rendering, tag removal, contacts, back links and invalid URLs passed.`);
+
+const addedKey = 'A1/0/added';
+const removedKey = 'A1/0/removed';
+data.contacts = {
+  [addedKey]: {nome: 'Contato cadastrado'},
+  [removedKey]: {nome: 'Contato removido', deleted: true},
+};
+data.cardMeta = {
+  ['contato:' + addedKey]: {is_new: false, history: [{action: 'added'}, {action: 'edited'}]},
+  ['contato:' + removedKey]: {history: [{
+    action: 'deleted', data: data.contacts[removedKey], name: 'Pessoa editora', created_at: '24/11/2026 10:30',
+  }]},
+};
+const contactsView = render('?competencia=A1').element('app').innerHTML;
+assert.match(contactsView, /Contato cadastrado <span[^>]*>Adicionado/);
+assert.match(contactsView, /Histórico de exclusões \(1\)/);
+assert.match(contactsView, /Contato removido<\/strong> · Excluído por Pessoa editora em 24\/11\/2026 10:30/);
+assert(!contactsView.includes('data-edit-contact="' + removedKey + '"'));
+assert(!render('?competencia=A2').element('app').innerHTML.includes('Contato removido'));

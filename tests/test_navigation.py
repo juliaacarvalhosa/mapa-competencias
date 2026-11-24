@@ -95,3 +95,41 @@ class PilotNavigationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         data = load_pilot_data()
         self.assertTrue(any(item.get('nome') == 'Material editável' and item.get('explicacao') == 'Descrição atualizada' for item in data['materialsLeft']))
+
+    def test_related_contact_add_edit_and_reload(self):
+        payload = {
+            'password': 'test-password', 'name': 'Editora', 'action': 'add',
+            'item_type': 'contato', 'item_key': 'A1/0',
+            'fields': {'nome': 'Pessoa teste', 'email': 'teste@example.com'},
+        }
+        with self.settings(MAP_EDIT_PASSWORD='test-password'):
+            response = self.client.post('/mapa/cards/edit/', payload, content_type='application/json')
+            self.assertEqual(response.status_code, 200)
+            card = MapCard.objects.get(item_type='contato')
+            self.assertTrue(card.item_key.startswith('A1/0/'))
+            payload.update(action='update', item_key=card.item_key)
+            payload['fields']['telefone'] = '1234'
+            response = self.client.post('/mapa/cards/edit/', payload, content_type='application/json')
+            self.assertEqual(response.status_code, 200)
+        data = self.client.get('/').context['pilot_data']
+        self.assertEqual(data['contacts'][card.item_key]['telefone'], '1234')
+        history = data['cardMeta']['contato:' + card.item_key]['history']
+        self.assertEqual([version['action'] for version in history], ['added', 'edited'])
+
+    def test_delete_directory_contact_only_from_selected_card(self):
+        payload = {
+            'name': 'Editora', 'action': 'delete', 'item_type': 'contato',
+            'item_key': 'A1/0/0', 'password': 'wrong',
+        }
+        with self.settings(MAP_EDIT_PASSWORD='test-password'):
+            response = self.client.post('/mapa/cards/edit/', payload, content_type='application/json')
+            self.assertEqual(response.status_code, 403)
+            payload['password'] = 'test-password'
+            response = self.client.post('/mapa/cards/edit/', payload, content_type='application/json')
+            self.assertEqual(response.status_code, 200)
+        data = load_pilot_data()
+        self.assertTrue(data['contacts']['A1/0/0']['deleted'])
+        self.assertNotIn('A1/1/0', data['contacts'])
+        self.assertNotIn('deleted', data['leadResearchers'][0])
+        history = data['cardMeta']['contato:A1/0/0']['history']
+        self.assertEqual([version['action'] for version in history], ['original', 'deleted'])
