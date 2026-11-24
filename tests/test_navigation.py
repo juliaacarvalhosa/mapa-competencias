@@ -137,3 +137,16 @@ class PilotNavigationTests(TestCase):
         self.assertNotIn('deleted', data['leadResearchers'][0])
         history = data['cardMeta']['contato:A1/0/0']['history']
         self.assertEqual([version['action'] for version in history], ['original', 'deleted'])
+
+    def test_history_resolves_only_authors_identifiable_from_card(self):
+        versions = [
+            {'action': 'added', 'data': {'nome': 'Inicial'}},
+            {'action': 'edited', 'data': {'nome': 'Sem autoria'}},
+            {'action': 'edited', 'name': 'Outro editor', 'data': {'nome': 'Anterior'}},
+            {'action': 'edited', 'data': {'nome': 'Atual'}},
+        ]
+        MapCard.objects.create(item_type='material', item_key='Inicial', data=versions[-1]['data'],
+                               created_by='Criadora', updated_by='Editora', history=versions)
+        meta = self.client.get('/').context['pilot_data']['cardMeta']['material:Inicial']
+        self.assertEqual([v.get('name') for v in meta['history']],
+                         ['Criadora', None, 'Outro editor', 'Editora'])

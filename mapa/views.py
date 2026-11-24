@@ -47,6 +47,12 @@ def load_pilot_data():
                 'action': 'original',
                 'created_at': card.updated_at.strftime('%d/%m/%Y %H:%M'),
             }]
+        if edited_versions:
+            first, latest = edited_versions[0], edited_versions[-1]
+            if first.get('action') == 'added' and not first.get('name') and card.created_by:
+                first['name'] = card.created_by
+            if not latest.get('name') and latest.get('data') == card.data and card.updated_by:
+                latest['name'] = card.updated_by
         history = original_versions + edited_versions
         is_edited = any(version.get('action') not in ('original', 'added') for version in history)
         data['cardMeta'][f'{card.item_type}:{card.item_key}'] = {
