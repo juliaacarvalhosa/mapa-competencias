@@ -3,6 +3,7 @@ import re
 from uuid import uuid4
 from hashlib import sha256
 from django.conf import settings
+from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
@@ -106,6 +107,7 @@ def submit_feedback(request):
 
 
 @require_POST
+@transaction.atomic
 def edit_card(request):
     try:
         payload = json.loads(request.body or '{}')
@@ -114,7 +116,8 @@ def edit_card(request):
     if payload.get('password', '') != settings.MAP_EDIT_PASSWORD:
         return JsonResponse({'error': 'Palavra de segurança incorreta.'}, status=403)
 
-    editor = str(payload.get('name', '')).strip()[:120]
+    submitted_name = payload.get('editor_name', payload.get('name'))
+    editor = submitted_name.strip()[:120] if isinstance(submitted_name, str) else ''
     if not editor:
         return JsonResponse({'error': 'Informe seu nome para registrar a alteracao.'}, status=400)
     item_type = str(payload.get('item_type', '')).strip()
@@ -251,7 +254,7 @@ def edit_card(request):
             initial_history.append({'data': base_snapshot, 'name': None, 'action': 'original', 'created_at': now_label})
         version_action = {'add': 'added', 'delete': 'deleted'}.get(action, 'edited')
         current_version = {'data': json.loads(json.dumps(stored_data)), 'name': editor, 'action': version_action, 'created_at': now_label}
-        record, created = MapCard.objects.get_or_create(item_type=item_type, item_key=stored_key, defaults={'data': stored_data, 'is_new': action == 'add', 'created_by': editor, 'updated_by': editor, 'history': initial_history + [current_version]})
+        record, created = MapCard.objects.select_for_update().get_or_create(item_type=item_type, item_key=stored_key, defaults={'data': stored_data, 'is_new': action == 'add', 'created_by': editor, 'updated_by': editor, 'history': initial_history + [current_version]})
         if not created:
             history = list(record.history or [])
             if not history and base_snapshot is not None and action != 'add':
@@ -262,9 +265,6 @@ def edit_card(request):
             record.is_new = False
             record.updated_by = editor
             record.save()
-        else:
-            record.updated_by = editor
-            record.save(update_fields=['updated_by', 'updated_at'])
         if item_type != 'contato' and original_key and stored_key != original_key:
             MapCard.objects.filter(item_type=item_type, item_key=original_key).exclude(pk=record.pk).delete()
     except ValueError as error:

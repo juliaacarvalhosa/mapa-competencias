@@ -432,7 +432,7 @@ body{min-height:100vh;display:flex;flex-direction:column;background:var(--firjan
   width: 100%;
   min-width: 0;
 }
-.home-contacts > h3, .competence-contacts > h4 {
+.home-contacts > h3 {
   margin: 0 0 1rem;
   color: var(--teal-deep);
 }
@@ -516,21 +516,27 @@ button.inline-contact:hover, button.inline-contact:focus-visible {
   border: 1px solid var(--line);
   border-radius: var(--radius-m);
 }
-.competence-contacts h4 { margin: 0 0 10px; text-transform: uppercase; }
+.competence-contacts { font-size: .75rem; line-height: 1.4; }
+.competence-contacts > h4 {
+  margin: 0 0 6px;
+  font: 700 .75rem/1.35 var(--sans);
+  color: var(--firjan-orange);
+}
+.competence-contacts [data-edit-contact] { font-size: .625rem; }
 .contact-pills { display: flex; flex-wrap: wrap; gap: 5px; }
 .contact-page[hidden] { display: none; }
-.contact-pager { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; }
+.contact-pager { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: .6875rem; }
 .contact-pager button { border: 1px solid var(--line); border-radius: 6px; background: var(--bg-panel); color: var(--teal-deep); cursor: pointer; min-width: 28px; min-height: 26px; }
 .contact-pager button:disabled { opacity: .45; cursor: default; }
 .competence-contacts [data-add-contact] {
   margin-top: 16px;
   padding: 10px 16px;
-  font-size: 13px;
+  font-size: .6875rem;
 }
 .contact-pill {
   max-width: 100%; padding: 4px 9px; border-radius: 999px;
   border: 1px solid var(--line); color: var(--teal-deep); background: var(--teal-mist);
-  font: 600 .85rem/1.4 var(--sans); overflow-wrap: anywhere; cursor: pointer;
+  font: 600 .75rem/1.4 var(--sans); overflow-wrap: anywhere; cursor: pointer;
 }
 .contact-pill:hover, .contact-pill:focus-visible {
   border-color: var(--firjan-orange); box-shadow: inset 3px 0 var(--firjan-orange);
@@ -538,6 +544,6 @@ button.inline-contact:hover, button.inline-contact:focus-visible {
 
 .contact-entry { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; }
 
-.contact-history { margin-top: 12px; font-size: 13px; }
+.contact-history { margin-top: 12px; font-size: .6875rem; }
 .contact-history summary { cursor: pointer; }
 .contact-history ul { padding-inline-start: 20px; }

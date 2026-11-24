@@ -537,7 +537,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     var value = function(text){ return escapeHtml(text || ''); };
     var html = '<div class="panel-top"><div><span class="panel-eyebrow">Edi&ccedil;&atilde;o protegida</span><h3>'+title+'</h3></div><button class="panel-close" data-close aria-label="Fechar">&times;</button></div>';
     html += '<p class="plain-p">Informe a palavra de seguran&ccedil;a para autorizar esta altera&ccedil;&atilde;o.</p>';
-    html += '<form id="card-edit-form" class="main-feedback-form"><label>Seu nome <span class="required-label">(obrigat&oacute;rio)</span><input name="name" maxlength="120" required placeholder="Quem est&aacute; fazendo esta altera&ccedil;&atilde;o?"></label><label>Palavra de seguran&ccedil;a<input name="password" type="password" required autocomplete="current-password"></label>';
+    html += '<form id="card-edit-form" class="main-feedback-form"><label>Seu nome <span class="required-label">(obrigat&oacute;rio)</span><input name="editor_name" maxlength="120" required placeholder="Quem est&aacute; fazendo esta altera&ccedil;&atilde;o?"></label><label>Palavra de seguran&ccedil;a<input name="password" type="password" required autocomplete="current-password"></label>';
     if(chooseType) html += '<div class="card-type-picker"><span class="card-type-picker-label">Tipo de card</span><div class="card-type-grid"><button type="button" class="card-type-option is-selected" data-card-type="competencia"><span class="card-type-icon">A</span><span><strong>Compet&ecirc;ncia</strong><small>Uma capacidade t&eacute;cnica do mapa</small></span></button><button type="button" class="card-type-option" data-card-type="material"><span class="card-type-icon">M</span><span><strong>Mat&eacute;ria-prima</strong><small>Um insumo ou recurso de entrada</small></span></button><button type="button" class="card-type-option" data-card-type="setor"><span class="card-type-icon">S</span><span><strong>Setor</strong><small>Uma aplica&ccedil;&atilde;o ou mercado</small></span></button></div><input type="hidden" name="item_type" value="competencia"></div>';
     html += '<div class="version-selection-note" data-version-selection></div><div class="edit-fields" data-edit-fields></div>'+historyHtml(itemType, itemKey)+'<p class="feedback-status" role="status"></p><button class="btn btn-primary" type="submit">Salvar altera&ccedil;&atilde;o</button>'+ (editingContact && !adding ? '<button type="submit" class="btn btn-ghost" data-delete-contact formnovalidate>Excluir contato deste card</button>' : '')+'</form>';
     openPanel(html); overlay.classList.add('feedback-overlay');
@@ -613,11 +613,11 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       event.preventDefault();
       var deleting = event.submitter && event.submitter.hasAttribute('data-delete-contact');
       if(deleting){
-        if(!form.elements.name.reportValidity() || !form.elements.password.reportValidity()) return;
+        if(!form.elements.editor_name.reportValidity() || !form.elements.password.reportValidity()) return;
         if(!await confirmContactDeletion(contact.nome)) return;
       }
-      var type = chooseType ? form.elements.item_type.value : itemType, payload = {name:form.elements.name.value, password:form.elements.password.value, action:deleting?'delete':(adding?'add':'update'), item_type:type, item_key:itemKey, fields:{}};
-      new FormData(form).forEach(function(v,k){ if(k !== 'password' && k !== 'item_type') payload.fields[k] = (k === 'bullets' || k === 'teams' || k === 'produtos') ? v.split(/\r?\n/) : v; });
+      var type = chooseType ? form.elements.item_type.value : itemType, payload = {editor_name:form.elements.editor_name.value.trim(), password:form.elements.password.value, action:deleting?'delete':(adding?'add':'update'), item_type:type, item_key:itemKey, fields:{}};
+      new FormData(form).forEach(function(v,k){ if(k !== 'password' && k !== 'editor_name' && k !== 'item_type') payload.fields[k] = (k === 'bullets' || k === 'teams' || k === 'produtos') ? v.split(/\r?\n/) : v; });
       var status = form.querySelector('.feedback-status'); status.textContent = 'Salvando...';
       if(type === 'competencia' && payload.fields.code && payload.fields.code.trim().toUpperCase().charAt(0) !== payload.fields.letter){ status.textContent = 'O c&oacute;digo precisa come&ccedil;ar com a letra do eixo selecionado.'; return; }
       fetch('/mapa/cards/edit/', {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}, body:JSON.stringify(payload)})
@@ -647,7 +647,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       var versionLabel = version.action === 'original' ? 'Vers&atilde;o original' : (isAddedOriginal ? 'Original adicionado' : (version.action === 'added' ? 'Card adicionado' : (hasAddedOriginal ? 'Edi&ccedil;&atilde;o do adicionado' : 'Vers&atilde;o editada #' + editNumber)));
       var isOriginal = isOriginalHistoryVersion(version, meta);
       var versionNote = changed ? '<small>Alterado: '+changed+'</small>' : (isOriginal ? '<small>Conte&uacute;do base do card</small>' : (version.action === 'added' ? '<small>Conte&uacute;do inicial do card</small>' : '<small>Campos alterados</small>'));
-      return '<button type="button" class="card-version '+(isOriginal?'is-original':'')+'" data-version-index="'+index+'" aria-pressed="false"><strong>'+versionLabel+'</strong><span>'+(version.name ? escapeHtml(version.name) : 'Base do mapa')+' &middot; '+escapeHtml(version.created_at||'')+'</span>'+versionNote+'</button>';
+      return '<button type="button" class="card-version '+(isOriginal?'is-original':'')+'" data-version-index="'+index+'" aria-pressed="false"><strong>'+versionLabel+'</strong><span>'+(version.name ? escapeHtml(version.name) : (version.action === 'original' ? 'Base do mapa' : 'Autoria não registrada'))+' &middot; '+escapeHtml(version.created_at||'')+'</span>'+versionNote+'</button>';
     }).join('')+(history.some(function(version){ return isOriginalHistoryVersion(version, meta); }) ? '<button type="button" class="card-version-back" data-version-original>&larr; Voltar para a vers&atilde;o original</button>' : '')+'</div>';
   }
 
@@ -1179,13 +1179,13 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
 
   function openBulletPanel(letter, code, bullet, bulletIndex, adding){
     var html = '<div class="panel-top"><div><span class="panel-eyebrow">Edi&ccedil;&atilde;o protegida</span><h3>'+(adding?'Adicionar card':'Editar card')+'</h3></div><button class="panel-close" data-close aria-label="Fechar">&times;</button></div>';
-    html += '<p class="plain-p">Este card pertence &agrave; compet&ecirc;ncia '+escapeHtml(code)+'.</p><form id="bullet-edit-form" class="main-feedback-form"><label>Seu nome <span class="required-label">(obrigat&oacute;rio)</span><input name="name" maxlength="120" required placeholder="Quem est&aacute; fazendo esta altera&ccedil;&atilde;o?"></label><label>Palavra de seguran&ccedil;a<input name="password" type="password" required></label><label>Texto do card<textarea name="bullet" rows="5" required>'+escapeHtml(bullet)+'</textarea></label><p class="feedback-status" role="status"></p><button class="btn btn-primary" type="submit">Salvar card</button></form>';
+    html += '<p class="plain-p">Este card pertence &agrave; compet&ecirc;ncia '+escapeHtml(code)+'.</p><form id="bullet-edit-form" class="main-feedback-form"><label>Seu nome <span class="required-label">(obrigat&oacute;rio)</span><input name="editor_name" maxlength="120" required placeholder="Quem est&aacute; fazendo esta altera&ccedil;&atilde;o?"></label><label>Palavra de seguran&ccedil;a<input name="password" type="password" required></label><label>Texto do card<textarea name="bullet" rows="5" required>'+escapeHtml(bullet)+'</textarea></label><p class="feedback-status" role="status"></p><button class="btn btn-primary" type="submit">Salvar card</button></form>';
     openPanel(html); overlay.classList.add('feedback-overlay');
     panel.querySelector('[data-close]').addEventListener('click', closePanel);
     var form = panel.querySelector('#bullet-edit-form');
     form.addEventListener('submit', function(event){
       event.preventDefault(); var status=form.querySelector('.feedback-status'); status.textContent='Salvando...';
-      fetch('/mapa/cards/edit/', {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}, body:JSON.stringify({name:form.elements.name.value, password:form.elements.password.value, action:adding?'add_bullet':'update_bullet', item_type:'competencia', item_key:code, fields:{bullet:form.elements.bullet.value, old_bullet:bullet, bullet_index:bulletIndex}})})
+      fetch('/mapa/cards/edit/', {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}, body:JSON.stringify({editor_name:form.elements.editor_name.value.trim(), password:form.elements.password.value, action:adding?'add_bullet':'update_bullet', item_type:'competencia', item_key:code, fields:{bullet:form.elements.bullet.value, old_bullet:bullet, bullet_index:bulletIndex}})})
         .then(function(response){return response.json().then(function(body){if(!response.ok) throw new Error(body.error||'N&atilde;o foi poss&iacute;vel salvar.');return body;});})
         .then(function(){status.textContent='Card salvo. Atualizando...';window.setTimeout(refreshCurrentMapView,300);})
         .catch(function(error){status.textContent=error.message;});

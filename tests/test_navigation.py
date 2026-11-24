@@ -85,7 +85,7 @@ class PilotNavigationTests(TestCase):
             'fields': {'nome': 'Material editável', 'explicacao': 'Descrição', 'produtos': ['Produto']},
         }
         edit_payload = {
-            'password': 'test-password', 'name': 'Pessoa editora', 'action': 'update',
+            'password': 'test-password', 'editor_name': 'Pessoa editora', 'action': 'update',
             'item_type': 'material', 'item_key': 'Material editável',
             'fields': {'nome': 'Material editável', 'explicacao': 'Descrição atualizada', 'produtos': ['Produto']},
         }
@@ -94,6 +94,10 @@ class PilotNavigationTests(TestCase):
             response = self.client.post('/mapa/cards/edit/', data=json.dumps(edit_payload), content_type='application/json')
         self.assertEqual(response.status_code, 200)
         data = load_pilot_data()
+        meta = data['cardMeta']['material:Material editável']
+        self.assertEqual(meta['created_by'], 'Pessoa criadora')
+        self.assertEqual(meta['updated_by'], 'Pessoa editora')
+        self.assertEqual([v['name'] for v in meta['history']], ['Pessoa criadora', 'Pessoa editora'])
         self.assertTrue(any(item.get('nome') == 'Material editável' and item.get('explicacao') == 'Descrição atualizada' for item in data['materialsLeft']))
 
     def test_related_contact_add_edit_and_reload(self):
