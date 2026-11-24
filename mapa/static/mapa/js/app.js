@@ -316,6 +316,8 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     html += '<div class="section-edit-actions"><button class="btn btn-primary" id="btnAddCompetence" type="button">Adicionar nova compet&ecirc;ncia</button></div>';
     html += '</div>';
 
+    html += competenceContactsHtml(letter, sec.title, 'eixo');
+
     if(letter === 'A'){
       html += '<div class="section-columns">';
       html += '<div class="flank"><p class="flank-label">Matérias-primas</p>';
@@ -435,7 +437,8 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       '<span class="sub-code">'+code+'</span>' +
       '<span class="sub-title">'+sub.title+'</span>' + changeBadge('competencia', code) +
       '<span class="sub-foot">'+dots+'<span class="sub-count">'+sub.bullets.length+' competências</span></span>' +
-      '<span class="sub-action">Abrir detalhes <span aria-hidden="true">&rarr;</span></span></button><div class="card-actions"><button type="button" class="sub-feedback" data-card-feedback="'+code+'">Dar opini&atilde;o</button><button type="button" class="card-edit-button" data-edit-type="competencia" data-edit-key="'+code+'">Editar</button></div></div>';
+      '<span class="sub-action">Abrir detalhes <span aria-hidden="true">&rarr;</span></span></button><div class="card-actions"><button type="button" class="sub-feedback" data-card-feedback="'+code+'">Dar opini&atilde;o</button><button type="button" class="card-edit-button" data-edit-type="competencia" data-edit-key="'+code+'">Editar</button></div>'+
+      competenceContactsHtml(code, sub.title, 'subdivisao')+'</div>';
   }
 
   // ---------------- PANELS ----------------
@@ -765,6 +768,20 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   }
 
   document.addEventListener('click', function(event){
+    var step = event.target.closest('[data-contact-step]');
+    if(step){
+      var pager = step.parentElement;
+      var pages = pager.closest('.competence-contacts').querySelectorAll('.contact-page');
+      var currentPage = Number(pager.dataset.page) + Number(step.dataset.contactStep);
+      if(currentPage < 0 || currentPage >= pages.length) return;
+      pages.forEach(function(page, i){ page.hidden = i !== currentPage; });
+      pager.dataset.page = currentPage;
+      pager.querySelector('[role="status"]').textContent = (currentPage + 1)+' de '+pages.length;
+      pager.firstElementChild.disabled = currentPage === 0;
+      pager.lastElementChild.disabled = currentPage === pages.length - 1;
+      if(step.disabled) pager.querySelector('button:enabled').focus();
+      return;
+    }
     var add = event.target.closest('[data-add-contact]');
     if(add){ openEditPanel('contato', add.dataset.addContact, true); return; }
     var editContact = event.target.closest('[data-edit-contact]');
@@ -840,7 +857,9 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   function competenceContactsHtml(code, description, index){
     var scope = code + '/' + index;
     var saved = DATA.contacts || {};
-    var people = contactsForCompetence(code, description);
+    var people = index === 'eixo' ? directoryPeople().filter(function(person){
+      return (!person.situacao || person.situacao === 'Ativo') && (person.areas || []).includes(code);
+    }) : contactsForCompetence(code, description);
     var fallback = !people.length;
     if(fallback) people = homeContacts().filter(function(p){ return p.nome === 'Antonio Augusto Fidalgo Neto'; });
     var directory = directoryPeople();
@@ -864,15 +883,21 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       keys = keys.filter(function(key){ return saved[key]; });
       fallback = false;
     }
+    var pageSize = 3;
+    var pageCount = Math.ceil(keys.length / pageSize);
+    var pager = pageCount > 1 ? '<div class="contact-pager" data-page="0"><button type="button" data-contact-step="-1" aria-label="Página anterior de contatos" disabled>‹</button>'+
+      '<span role="status">1 de '+pageCount+'</span><button type="button" data-contact-step="1" aria-label="Próxima página de contatos">›</button></div>' : '';
     return '<section class="competence-contacts" aria-label="Contatos relacionados"><h4>Contatos relacionados</h4>'+
-      (fallback ? '<p>Para esta competência, fale com a gerência.</p>' : '')+
-      '<div class="contact-pills">'+keys.map(function(key){
+      (fallback ? '<p>Para '+(index === 'eixo' ? 'este eixo' : 'esta competência')+', fale com a gerência.</p>' : '')+
+      keys.map(function(key, i){
         var p = saved[key] || directory[Number(key.split('/')[2])];
         var meta = cardMeta('contato', key);
         var added = meta && (meta.is_new || orderedHistory(meta).some(function(version){ return version.action === 'added'; }));
         var badge = added ? ' <span class="card-change-badge card-change-new">Adicionado</span>' : '';
-        return '<span class="contact-entry"><button type="button" class="contact-pill" data-contact-key="'+escapeHtml(key)+'" data-contact="'+escapeHtml(p.nome)+'" aria-haspopup="dialog">'+escapeHtml(p.nome)+badge+'</button><button type="button" class="card-edit-button" data-edit-contact="'+escapeHtml(key)+'" aria-label="Editar contato de '+escapeHtml(p.nome)+'">Editar</button></span>';
-      }).join('')+'</div><button type="button" class="card-edit-button" data-add-contact="'+escapeHtml(scope)+'">Adicionar contato</button>'+deletionHistory+'</section>';
+        var start = i % pageSize === 0 ? '<div class="contact-pills contact-page"'+(i ? ' hidden' : '')+'>' : '';
+        var end = (i + 1) % pageSize === 0 || i + 1 === keys.length ? '</div>' : '';
+        return start+'<span class="contact-entry"><button type="button" class="contact-pill" data-contact-key="'+escapeHtml(key)+'" data-contact="'+escapeHtml(p.nome)+'" aria-haspopup="dialog">'+escapeHtml(p.nome)+badge+'</button><button type="button" class="card-edit-button" data-edit-contact="'+escapeHtml(key)+'" aria-label="Editar contato de '+escapeHtml(p.nome)+'">Editar</button></span>'+end;
+      }).join('')+pager+'<button type="button" class="card-edit-button" data-add-contact="'+escapeHtml(scope)+'">Adicionar contato</button>'+deletionHistory+'</section>';
   }
 
   function rdLayerHtml(kind, name){

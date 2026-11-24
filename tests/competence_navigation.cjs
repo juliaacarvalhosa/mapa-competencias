@@ -83,3 +83,31 @@ assert.match(contactsView, /Histórico de exclusões \(1\)/);
 assert.match(contactsView, /Contato removido<\/strong> · Excluído por Pessoa editora em 24\/11\/2026 10:30/);
 assert(!contactsView.includes('data-edit-contact="' + removedKey + '"'));
 assert(!render('?competencia=A2').element('app').innerHTML.includes('Contato removido'));
+
+data.contacts['A1/subdivisao/added'] = {nome: 'Contato da subdivisao'};
+const axisView = render('?eixo=A').element('app').innerHTML;
+assert(axisView.includes('data-add-contact="A1/subdivisao"'));
+assert(axisView.includes('data-add-contact="A2/subdivisao"'));
+assert(axisView.includes('Contato da subdivisao'));
+assert(!axisView.includes('Contato cadastrado'));
+assert(!render('?competencia=A1').element('app').innerHTML.includes('Contato da subdivisao'));
+assert(render('?eixo=B').element('app').innerHTML.includes('data-add-contact="B1/subdivisao"'));
+
+for (const [letter, axis] of Object.entries(data.competencias)) {
+  const html = render('?eixo=' + letter).element('app').innerHTML;
+  assert(html.includes('data-add-contact="' + letter + '/eixo"'));
+  for (const code of Object.keys(axis.subdivisions)) {
+    assert(html.includes('data-add-contact="' + code + '/subdivisao"'));
+  }
+}
+
+for (let i = 0; i < 7; i++) {
+  data.contacts['A1/subdivisao/test-' + i] = {nome: 'Pessoa ' + i};
+}
+const paginated = render('?eixo=A').element('app').innerHTML;
+const groups = [...paginated.matchAll(/<div class="contact-pills contact-page"( hidden)?>(.*?)<\/div>/gs)];
+assert(groups.some(group => group[1]));
+for (const group of groups) {
+  assert((group[2].match(/class="contact-entry"/g) || []).length <= 3);
+}
+assert(paginated.includes('data-contact-step="1"'));

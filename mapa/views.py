@@ -155,7 +155,10 @@ def edit_card(request):
             if action not in ('add', 'update', 'delete') or len(parts) != (2 if action == 'add' else 3):
                 raise ValueError('Card de contatos inválido.')
             code, index = parts[:2]
-            if code not in data['competencias'].get(code[:1], {}).get('subdivisions', {}) or not re.fullmatch(r'[0-9]{1,5}', index):
+            axis_contact = index == 'eixo' and code in data['competencias']
+            subdivision_contact = (code in data['competencias'].get(code[:1], {}).get('subdivisions', {})
+                                   and re.fullmatch(r'subdivisao|[0-9]{1,5}', index))
+            if not (axis_contact or subdivision_contact):
                 raise ValueError('Competência inválida.')
             if action == 'add':
                 stored_key = f'{key}/{uuid4().hex}'
