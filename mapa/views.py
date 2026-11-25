@@ -193,7 +193,7 @@ def edit_card(request):
             code = str(fields.get('code') or key).strip().upper()
             if action == 'add':
                 if code[:1] not in data.get('competencias', {}):
-                    raise ValueError('O c&oacute;digo deve come&ccedil;ar com uma letra de eixo v&aacute;lida (A, B, C, D ou E).')
+                    raise ValueError('O c&oacute;digo deve come&ccedil;ar com uma letra de eixo v&aacute;lida (A, B, C, D, E ou F).')
                 if letter != code[:1]:
                     raise ValueError('O c&oacute;digo e o eixo selecionado n&atilde;o combinam.')
             subdivisions = data.setdefault('competencias', {}).setdefault(letter, {}).setdefault('subdivisions', {})

@@ -10,7 +10,34 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   var overlay = document.getElementById('overlay');
   var panel = document.getElementById('panel');
   var header = document.querySelector('.topbar');
+  var menuToggle = document.getElementById('menu-toggle');
+  function closeMobileMenu(){
+    if(menuToggle.getAttribute('aria-expanded') !== 'true') return;
+    menuToggle.focus();
+    menuToggle.setAttribute('aria-expanded', 'false');
+    document.getElementById('main-menu').classList.remove('is-open');
+    document.querySelectorAll('[data-top-menu][aria-expanded]').forEach(function(button){
+      button.removeAttribute('aria-expanded');
+    });
+  }
+  menuToggle.addEventListener('click', function(){
+    if(menuToggle.getAttribute('aria-expanded') === 'true') closeMobileMenu();
+    else {
+      document.querySelectorAll('[data-top-menu]').forEach(function(button){
+        button.setAttribute('aria-expanded', 'false');
+      });
+      menuToggle.setAttribute('aria-expanded', 'true');
+      document.getElementById('main-menu').classList.add('is-open');
+    }
+  });
+  document.addEventListener('keydown', function(event){
+    if(event.key === 'Escape') closeMobileMenu();
+  });
+  if(window.matchMedia){
+    window.matchMedia('(max-width: 599px), (max-width: 960px) and (max-height: 500px) and (pointer: coarse)').addEventListener('change', closeMobileMenu);
+  }
   document.getElementById('qr-open').addEventListener('click', function(){
+    closeMobileMenu();
     document.getElementById('map-qr').showModal();
   });
   var lastFocusedElement = null;
@@ -25,7 +52,8 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     D: {label:"Biotecnologia", desc:"Desdobramento da competência A3 (Biotecnológicos) em cinco frentes técnicas próprias — fermentação, catálise enzimática, engenharia genética, cultivo celular e biorremediação."},
     E: {label:"Circularidade", desc:"Desdobramento de competências reais já mapeadas em A3, A4, A7, A11 e B3 (tratamento de efluentes, descarte de água produzida, remediação de áreas contaminadas e gestão digital de resíduos)."}
   };
-  var AREA_LETTERS = ['A','B','C','D','E'];
+  LETTER_META.F = {label:"Materiais", desc:"Competências relacionadas a materiais."};
+  var AREA_LETTERS = ['A','B','C','D','E','F'];
   var entryTitles = {material:'Matérias-primas', competence:'Competências técnicas', sector:'Setores de aplicação'};
 
   var TEAM_COLOR = DATA.teamColors || {};
@@ -58,6 +86,8 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   var RD_CAT_LABEL = {novo:'Novo', modificacao:'Modificação', reciclagem:'Reciclagem / Circularidade'};
 
   function render(){
+    var itemDetail = ['item', 'rdcategory', 'drill'].includes(state.view);
+    document.body.classList.toggle('item-detail', itemDetail);
     document.body.classList.toggle('competence-page', state.view === 'competencia');
     if(state.view === 'home') renderHome();
     else if(state.view === 'catalog') renderCatalog(state.kind);
@@ -66,6 +96,50 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     else if(state.view === 'rdcategory') renderRdCategory();
     else if(state.view === 'drill') renderDrill();
     else if(state.view === 'competencia') renderCompetenciaFull();
+    if(state.view === 'section' || state.view === 'competencia'){
+      appEl.querySelectorAll('.sub-card-wrap, .competence-pair, .view-head + .competence-contacts').forEach(function(card, index){
+        var contactsOnly = card.classList.contains('competence-contacts');
+        var label = contactsOnly ? 'Contatos do eixo' : 'Detalhes e contatos';
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'card-details-toggle';
+        button.textContent = label;
+        button.setAttribute('aria-expanded', 'false');
+        card.id = 'map-detail-' + index;
+        button.setAttribute('aria-controls', card.id);
+        if(contactsOnly) card.before(button);
+        else card.appendChild(button);
+        button.addEventListener('click', function(){
+          var expanded = card.classList.toggle('detail-expanded');
+          button.setAttribute('aria-expanded', String(expanded));
+          button.textContent = expanded ? 'Mostrar menos' : label;
+        });
+      });
+    }
+    if(state.view !== 'home'){
+      appEl.querySelectorAll('.application-grid, .sub-grid, .competence-list, .client-grid, .company-grid, .rd-grid, .rd-choice-grid, .section-block').forEach(function(list){
+        window.compactMapList(list);
+      });
+    }
+    if(itemDetail){
+      appEl.querySelectorAll('.item-disclosure').forEach(function(section, index){
+        var heading = section.querySelector('h4');
+        var content = section.querySelector('.item-content');
+        content.id = 'item-content-' + index;
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = heading.textContent;
+        var desktopLabel = document.createElement('span');
+        desktopLabel.textContent = heading.textContent;
+        heading.replaceChildren(desktopLabel);
+        button.setAttribute('aria-controls', content.id);
+        button.setAttribute('aria-expanded', 'false');
+        heading.appendChild(button);
+        button.addEventListener('click', function(){
+          button.setAttribute('aria-expanded', String(section.classList.toggle('detail-expanded')));
+        });
+      });
+    }
     addDetailEditAction();
     renderCrumbs();
     updateSidebar();
@@ -111,6 +185,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
           option.setAttribute('role', 'menuitem');
           option.textContent = item.label;
           option.addEventListener('click', function(){
+            closeMobileMenu();
             if(item.letter) goSection(item.letter);
             else goItem(item.kind, item.index);
           });
@@ -128,6 +203,13 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       if(button.dataset.bound === 'true') return;
       button.dataset.bound = 'true';
       button.addEventListener('click', function(){
+        if(menuToggle.getAttribute('aria-expanded') === 'true'){
+          var expand = button.getAttribute('aria-expanded') !== 'true';
+          document.querySelectorAll('[data-top-menu]').forEach(function(item){
+            item.setAttribute('aria-expanded', String(item === button && expand));
+          });
+          return;
+        }
         if(kind === 'competence') goSection('A');
         else goItem(kind, 0);
       });
@@ -274,21 +356,48 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   function renderHome(){
     var html = '';
     html += '<div class="view-head home-hero"><h2>Mapa de competências</h2><p>Encontre a competência certa para o seu desafio</p></div>';
-    html += '<section class="home-applications" aria-label="Aplicações"><h3>Aplicações</h3><div class="application-grid">'+
+    var previewCount = 4;
+    html += '<section class="home-applications" aria-label="Aplicações"><h3>Aplicações</h3><div class="application-grid" id="home-applications-grid">'+
       DATA.sectorsRight.map(function(sector, index){
-        return '<button type="button" class="application-card" data-home-sector="'+index+'"><strong>'+escapeHtml(sector.nome)+'</strong></button>';
-      }).join('')+'</div></section>';
+        var extra = index >= previewCount ? ' application-extra' : '';
+        return '<button type="button" class="application-card'+extra+'" data-home-sector="'+index+'"><strong>'+escapeHtml(sector.nome)+'</strong></button>';
+      }).join('')+'</div>';
+    var showAllLabel = 'Ver todas as '+DATA.sectorsRight.length+' aplicações';
+    if(DATA.sectorsRight.length > previewCount){
+      html += '<button class="application-toggle" type="button" aria-controls="home-applications-grid" aria-expanded="false">'+showAllLabel+'</button>';
+    }
+    html += '</section>';
     html += '<div class="home-start"><div><span class="home-start-kicker">Comece por onde fizer mais sentido</span><h3>Tr&ecirc;s portas de entrada para o mesmo mapa</h3></div><span class="home-start-hint">Voc&ecirc; pode mudar de caminho a qualquer momento.</span></div>';
-    html += '<div class="home-entry-grid">';
+    html += '<div class="home-entry-grid" id="home-entry-grid">';
     html += homeEntryHtml('material', 'Mat&eacute;rias-primas', 'Parta do insumo e descubra rotas de transforma&ccedil;&atilde;o, compet&ecirc;ncias e aplica&ccedil;&otilde;es.', DATA.materialsLeft.length, 'insumos dispon&iacute;veis');
     html += homeEntryHtml('competence', 'Compet&ecirc;ncias t&eacute;cnicas', 'Veja as capacidades organizadas nos cinco eixos do centro de tecnologia.', AREA_LETTERS.length, 'eixos para explorar');
     html += homeEntryHtml('sector', 'Setores de aplica&ccedil;&atilde;o', 'Encontre caminhos de P&amp;D conectados a mercados, produtos e desafios reais.', DATA.sectorsRight.length, 'setores mapeados');
-    html += '</div>';
+    html += '</div><button type="button" class="entry-toggle" aria-controls="home-entry-grid" aria-expanded="false">Ver detalhes das três entradas</button>';
     html += '<div class="home-secondary"><div class="processos-note"><strong>Como navegar:</strong> abra uma entrada, selecione um card e use os links de conex&otilde;es para atravessar o mapa sem perder o contexto.</div>';
     html += '</div>';
     html += '<div class="footnote">Piloto de navega&ccedil;&atilde;o constru&iacute;do a partir dos materiais de refer&ecirc;ncia do projeto. Campos ainda n&atilde;o preenchidos aparecem como pendentes.</div>';
-    html += '<footer class="feedback-callout"><div><span class="feedback-callout-label">Ajude a melhorar o mapa</span><strong>Encontrou algo que falta, sobra ou precisa ser corrigido?</strong><span>Opine livremente ou edite os cards com a palavra de seguran&ccedil;a.</span></div><div class="feedback-callout-actions"><button class="feedback-callout-button" id="btnHomeFeedback" type="button">Dar opini&atilde;o agora <span aria-hidden="true">&rarr;</span></button><button class="feedback-view-button" id="btnViewFeedback" type="button">Ver opini&otilde;es salvas</button><button class="feedback-view-button" id="btnAddCard" type="button">Adicionar card</button></div></footer>';
+    html += '<footer class="feedback-callout"><button type="button" class="feedback-toggle" aria-expanded="false" aria-controls="feedback-intro feedback-actions">Ajude a melhorar o mapa</button><div id="feedback-intro"><span class="feedback-callout-label">Ajude a melhorar o mapa</span><strong>Encontrou algo que falta, sobra ou precisa ser corrigido?</strong><span>Opine livremente ou edite os cards com a palavra de seguran&ccedil;a.</span></div><div id="feedback-actions" class="feedback-callout-actions"><button class="feedback-callout-button" id="btnHomeFeedback" type="button">Dar opini&atilde;o agora <span aria-hidden="true">&rarr;</span></button><button class="feedback-view-button" id="btnViewFeedback" type="button">Ver opini&otilde;es salvas</button><button class="feedback-view-button" id="btnAddCard" type="button">Adicionar card</button></div></footer>';
     appEl.innerHTML = html;
+    var feedbackToggle = appEl.querySelector('.feedback-toggle');
+    feedbackToggle.addEventListener('click', function(){
+      var expand = feedbackToggle.getAttribute('aria-expanded') === 'false';
+      feedbackToggle.setAttribute('aria-expanded', String(expand));
+    });
+    var entryToggle = appEl.querySelector('.entry-toggle');
+    entryToggle.addEventListener('click', function(){
+      var expanded = entryToggle.getAttribute('aria-expanded') === 'false';
+      document.getElementById('home-entry-grid').classList.toggle('is-expanded', expanded);
+      entryToggle.setAttribute('aria-expanded', String(expanded));
+      entryToggle.textContent = expanded ? 'Mostrar menos' : 'Ver detalhes das três entradas';
+    });
+    var toggle = appEl.querySelector('.application-toggle');
+    if(toggle) toggle.addEventListener('click', function(){
+      var expand = toggle.getAttribute('aria-expanded') === 'false';
+      document.getElementById('home-applications-grid').classList.toggle('is-expanded', expand);
+      toggle.setAttribute('aria-expanded', String(expand));
+      toggle.textContent = expand ? 'Mostrar menos' : showAllLabel;
+      if(expand) appEl.querySelector('.application-extra').focus();
+    });
     appEl.querySelectorAll('[data-home-sector]').forEach(function(button){
       button.addEventListener('click', function(){ goItem('sector', Number(button.dataset.homeSector)); });
     });
@@ -453,6 +562,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
 
   // ---------------- PANELS ----------------
   function openPanel(innerHtml){
+    overlay.classList.remove('lead-contact-overlay');
     lastFocusedElement = document.activeElement;
     panel.innerHTML = innerHtml;
     overlay.hidden = false;
@@ -595,6 +705,12 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       }).join('');
       else if(type === 'competencia') fields.innerHTML = '<label>Eixo do mapa<select name="letter" required><option value="A" '+(value(adding ? 'A' : itemKey[0])==='A'?'selected':'')+'>A &mdash; Tecnologias e Processos</option><option value="B" '+(value(adding ? 'A' : itemKey[0])==='B'?'selected':'')+'>B &mdash; Conserva&ccedil;&atilde;o e Monitoramento</option><option value="C" '+(value(adding ? 'A' : itemKey[0])==='C'?'selected':'')+'>C &mdash; Inova&ccedil;&atilde;o em Sa&uacute;de</option><option value="D" '+(value(adding ? 'A' : itemKey[0])==='D'?'selected':'')+'>D &mdash; Biotecnologia</option><option value="E" '+(value(adding ? 'A' : itemKey[0])==='E'?'selected':'')+'>E &mdash; Circularidade</option></select></label><label>C&oacute;digo<input name="code" maxlength="12" required placeholder="Ex.: C1" value="'+value(adding ? '' : itemKey)+'"></label><label data-version-field="title">T&iacute;tulo <span data-change-marker hidden>Alterado</span><input name="title" maxlength="255" required value="'+value(current.title)+'"></label><label data-version-field="bullets">Compet&ecirc;ncias detalhadas <span data-change-marker hidden>Alterado</span><textarea name="bullets" rows="7" placeholder="Uma por linha">'+value((current.bullets||[]).join('\n'))+'</textarea></label><label data-version-field="teams">Equipes respons&aacute;veis <span data-change-marker hidden>Alterado</span><textarea name="teams" rows="3" placeholder="Uma por linha">'+value((current.teams||[]).join('\n'))+'</textarea></label>';
       else fields.innerHTML = '<label data-version-field="nome">Nome <span data-change-marker hidden>Alterado</span><input name="nome" maxlength="255" required value="'+value(current.nome)+'"></label><label data-version-field="explicacao">Explica&ccedil;&atilde;o <span data-change-marker hidden>Alterado</span><textarea name="explicacao" rows="4">'+value(current.explicacao)+'</textarea></label><label data-version-field="produtos">Produtos ou aplica&ccedil;&otilde;es <span data-change-marker hidden>Alterado</span><textarea name="produtos" rows="5" placeholder="Um por linha">'+value((current.produtos||[]).join('\n'))+'</textarea></label>';
+      if(type === 'competencia' && fields.querySelector('select[name="letter"]') && !fields.querySelector('option[value="F"]')){
+        var materialsOption = document.createElement('option');
+        materialsOption.value = 'F';
+        materialsOption.textContent = 'F — Materiais';
+        fields.querySelector('select[name="letter"]').appendChild(materialsOption);
+      }
       updateVersionMarkers(type);
     }
     renderFields(itemType);
@@ -780,7 +896,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       return Number(b.email === 'pfurio@firjan.com.br') - Number(a.email === 'pfurio@firjan.com.br');
     });
     var html = '<div class="panel-top"><h2>Gerência e Pesquisadores-Chefes</h2><button type="button" class="panel-close" data-close aria-label="Fechar">&times;</button></div>';
-    html += displayOrder.map(function(source){
+    html += '<div class="lead-contact-list">' + displayOrder.map(function(source){
       if(source.situacao && source.situacao !== 'Ativo') return '';
       var key = 'diretorio/chefias/'+people.indexOf(source);
       var person = (DATA.contacts || {})[key] || source;
@@ -791,7 +907,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       return '<section class="lead-contact"><h3>'+escapeHtml(person.nome)+'</h3><p>'+roleHtml+'</p><dl>'+
         '<dt><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#168044" stroke-width="1.8" d="M4.1 17.2a9.5 9.5 0 1 1 3 3L2.5 21.5z"/><path fill="#168044" d="M8 6.8c-.6 0-1.4.9-1.4 2.2 0 2.9 4.9 7.9 8.3 8.1 1.3.1 2.7-.7 2.8-2.1l-3-1.5-1.1 1.3c-1.7-.6-3.3-2-4.1-3.6l1-1.3-1.3-3z"/></svg>WhatsApp</dt><dd>'+(whatsapp ? '<a href="https://wa.me/'+whatsapp+'" target="_blank" rel="noopener noreferrer">Abrir conversa</a>' : 'Não informado')+'</dd>'+
         '<dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="m3.5 6 8.5 7 8.5-7"/></svg>E-mail</dt><dd>'+(email ? '<a href="mailto:'+escapeHtml(email)+'">'+escapeHtml(email)+'</a>' : 'Não informado')+'</dd></dl><button class="card-edit-button" type="button" data-edit-contact="'+key+'">Editar contato</button></section>';
-    }).join('');
+    }).join('') + '</div>';
     openPanel(html);
     overlay.classList.add('feedback-overlay', 'lead-contact-overlay');
     
@@ -957,13 +1073,14 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
         html += '</div></div>';
       }
     }
-    html += '<div class="section-block"><h4>Exemplos de produtos</h4><div class="tag-list">' +
+
+    html += '<div class="section-block item-disclosure"><h4>Exemplos de produtos</h4><div class="tag-list item-content">' +
       it.produtos.map(function(p){return '<span class="tag">'+p+'</span>';}).join('') + '</div></div>';
-    html += '<div class="section-block"><h4>Tamanho de mercado</h4>' +
-      marketCardHtml('Brasil', it.mercado_br) + marketCardHtml('Global', it.mercado_global) + '</div>';
+    html += '<div class="section-block item-disclosure"><h4>Tamanho de mercado</h4><div class="item-content">' +
+      marketCardHtml('Brasil', it.mercado_br) + marketCardHtml('Global', it.mercado_global) + '</div></div>';
     if(isSector){
-      html += '<div class="section-block"><h4>Exemplos de grandes empresas do setor</h4><div class="company-grid">' +
-        it.empresas.map(function(e){return '<div class="company-card">'+e+'</div>';}).join('') + '</div></div>';
+      html += '<div class="section-block item-disclosure"><h4>Exemplos de grandes empresas do setor</h4><div class="item-content"><div class="company-grid">' +
+        it.empresas.map(function(e){return '<div class="company-card">'+e+'</div>';}).join('') + '</div></div></div>';
     }
     html += '<div class="cta-row"><button class="btn btn-primary" id="btnItemEdit">Editar card</button><button class="btn btn-ghost" id="btnItemFeedback">Dar opini&atilde;o sobre este item</button></div>';
     appEl.innerHTML = html;

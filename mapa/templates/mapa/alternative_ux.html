@@ -12,6 +12,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="icon" type="image/jpeg" href="{% static 'mapa/img/icon-firjan.jpeg' %}">
   <link rel="stylesheet" href="{% static 'mapa/css/alternative_ux.css' %}">
+<link rel="stylesheet" href="{% static 'mapa/css/compact_lists.css' %}">
+{% include "mapa/pwa_head.html" %}
 </head>
 <body>
   <header class="alt-header">
@@ -75,6 +77,7 @@
 
   {{ pilot_data|json_script:"pilot-data" }}
   {{ feedback_items|json_script:"feedback-data" }}
-  <script src="{% static 'mapa/js/alternative_ux.js' %}?v=edit-cards-2"></script>
+  <script src="{% static 'mapa/js/compact_lists.js' %}"></script>
+<script src="{% static 'mapa/js/alternative_ux.js' %}?v=edit-cards-2"></script>
 </body>
 </html>

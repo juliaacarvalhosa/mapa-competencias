@@ -16,7 +16,7 @@ function render(search) {
   function element(key) {
     if (!nodes.has(key)) nodes.set(key, {
       innerHTML: '', hidden: true, textContent: '', events: {},
-      classList: {add() {}},
+      classList: {add() {}, remove() {}},
       addEventListener(type, fn) { this.events[type] = fn; },
       querySelector(selector) { return element(key + selector); },
       querySelectorAll() { return []; },

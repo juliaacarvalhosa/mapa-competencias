@@ -12,10 +12,13 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&family=Barlow+Semi+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{% static 'mapa/css/app.css' %}?v={{ stylesheet_version }}">
+<link rel="stylesheet" href="{% static 'mapa/css/compact_lists.css' %}">
+{% include "mapa/pwa_head.html" %}
 </head>
 <body>
 <header class="topbar">
   <div class="topbar-inner">
+    <button type="button" id="menu-toggle" aria-label="Menu de navegação" aria-expanded="false" aria-controls="main-menu"><span aria-hidden="true">☰</span></button>
     <a class="brand-logo-link" href="/" aria-label="Voltar à página inicial"><img class="brand-logo" src="{% static 'mapa/img/logo-senai-sesi-transparente.png' %}" alt=""></a>
     <div class="brand">
       <h1>Centro de Tecnologia da Firjan SENAI SESI</h1>
@@ -24,18 +27,18 @@
       <span class="brand-line brand-line-institutes">Instituto SENAI de Inovação em Química Verde e Biossintéticos &middot; Centro de Inovação SESI em Saúde Ocupacional</span>
     </div>
     <div class="header-actions">
-      <button type="button" id="lead-contact-button" aria-haspopup="dialog">Entre em contato com a Gerência e os Pesquisadores-Chefes</button>
       <nav class="crumbs" id="crumbs"></nav>
     </div>
   </div>
 </header>
 
-<nav class="top-menu" aria-label="Navegação principal">
+<nav class="top-menu" id="main-menu" aria-label="Navegação principal">
   <div class="top-menu-group" data-top-menu-group="material"><button type="button" data-top-menu="material">Matérias-primas</button><div class="top-menu-dropdown" role="menu"></div></div>
   <div class="top-menu-group" data-top-menu-group="competence"><button type="button" data-top-menu="competence">Competências</button><div class="top-menu-dropdown" role="menu"></div></div>
   <div class="top-menu-group" data-top-menu-group="sector"><button type="button" data-top-menu="sector">Aplicações</button><div class="top-menu-dropdown" role="menu"></div></div>
   <button type="button" id="qr-open" aria-haspopup="dialog">Gerar QR Code</button>
 </nav>
+<button type="button" id="lead-contact-button" aria-haspopup="dialog">Entre em contato com a Gerência e os Pesquisadores-Chefes</button>
 <dialog class="map-qr" id="map-qr" aria-labelledby="qr-title">
   <h2 id="qr-title">Mapa de competências</h2>
   <p>Aponte a câmera do celular para o QR Code.</p>
@@ -63,5 +66,6 @@
 {{ feedback_items|json_script:"feedback-data" }}
 <div hidden>{% csrf_token %}</div>
 
+<script src="{% static 'mapa/js/compact_lists.js' %}"></script>
 <script src="{% static 'mapa/js/app.js' %}?v={{ script_version }}" defer></script></body>
 </html>
