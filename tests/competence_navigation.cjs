@@ -1,4 +1,4 @@
-// Rendering and navigation smoke test; no browser or external dependency required.
+﻿// Rendering and navigation smoke test; no browser or external dependency required.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
@@ -16,6 +16,7 @@ function render(search) {
   function element(key) {
     if (!nodes.has(key)) nodes.set(key, {
       innerHTML: '', hidden: true, textContent: '', events: {},
+      classList: {add() {}},
       addEventListener(type, fn) { this.events[type] = fn; },
       querySelector(selector) { return element(key + selector); },
       querySelectorAll() { return []; },
@@ -111,3 +112,29 @@ for (const group of groups) {
   assert((group[2].match(/class="contact-entry"/g) || []).length <= 3);
 }
 assert(paginated.includes('data-contact-step="1"'));
+
+const landing = render('').element('app').innerHTML;
+for (const [kind, param, keys] of [
+  ['material', 'materia', data.materialsLeft.keys()],
+  ['competence', 'eixo', ['A','B','C','D','E']],
+  ['sector', 'setor', data.sectorsRight.keys()],
+]) {
+  assert(landing.includes('href="?entrada=' + kind + '"'));
+  const catalog = render('?entrada=' + kind).element('app').innerHTML;
+  for (const key of keys) assert(catalog.includes('class="application-card" href="?' + param + '=' + key + '"'));
+}
+assert.equal((landing.match(/data-home-sector="/g) || []).length, data.sectorsRight.length);
+assert(landing.indexOf('class="view-head home-hero"') < landing.indexOf('data-home-sector="0"'));
+assert(landing.endsWith('</footer>'));
+assert(!landing.includes('class="home-contacts"'));
+assert(landing.includes('id="btnHomeFeedback"'));
+
+
+const directoryView = render('');
+directoryView.element('lead-contact-button').events.click();
+const directoryHtml = directoryView.element('panel').innerHTML;
+assert(directoryHtml.includes('Gerente — GRT/GPD (Gerência de Pesquisa Aplicada em Química, Biologia e Saúde)<br>GPA - GER PESQ APLIC QUIM BIO SAUDE- GAB'));
+for (const person of data.leadResearchers) {
+  assert(directoryHtml.includes(person.nome));
+}
+assert(directoryHtml.includes('mailto:' + data.leadResearchers[0].email));

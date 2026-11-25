@@ -167,7 +167,8 @@ def edit_card(request):
             axis_contact = index == 'eixo' and code in data['competencias']
             subdivision_contact = (code in data['competencias'].get(code[:1], {}).get('subdivisions', {})
                                    and re.fullmatch(r'subdivisao|[0-9]{1,5}', index))
-            if not (axis_contact or subdivision_contact):
+            lead_contact = code == 'diretorio' and index == 'chefias' and action == 'update'
+            if not (axis_contact or subdivision_contact or lead_contact):
                 raise ValueError('Competência inválida.')
             if action == 'add':
                 stored_key = f'{key}/{uuid4().hex}'
@@ -175,7 +176,7 @@ def edit_card(request):
                 stored_key = key
                 base_snapshot = data['contacts'].get(key)
                 if base_snapshot is None:
-                    directory = data['leadResearchers'] + data['seniorResearchers']
+                    directory = data['leadResearchers'] + (data.get('managementContacts', []) if lead_contact else data['seniorResearchers'])
                     source = parts[2]
                     if not re.fullmatch(r'[0-9]{1,5}', source) or int(source) >= len(directory):
                         raise ValueError('Contato não encontrado.')
@@ -183,7 +184,10 @@ def edit_card(request):
             if action == 'delete':
                 stored_data = {**base_snapshot, 'deleted': True}
             else:
-                stored_data = {field: text(field, field == 'nome', 255) for field in ('nome', 'cargo', 'setor', 'email', 'telefone')}
+                contact_fields = ['nome', 'cargo', 'setor', 'email', 'telefone']
+                if lead_contact:
+                    contact_fields.append('whatsapp')
+                stored_data = {field: text(field, field == 'nome', 255) for field in contact_fields}
         elif item_type == 'competencia':
             letter = str(fields.get('letter') or key[:1] or 'A').strip().upper()
             code = str(fields.get('code') or key).strip().upper()

@@ -1,4 +1,4 @@
-:root{
+﻿:root{
   --bg:#EEF3F1;
   --bg-panel:#FFFFFF;
   --ink:#122421;
@@ -547,3 +547,143 @@ button.inline-contact:hover, button.inline-contact:focus-visible {
 .contact-history { margin-top: 12px; font-size: .6875rem; }
 .contact-history summary { cursor: pointer; }
 .contact-history ul { padding-inline-start: 20px; }
+
+/* Landing applications and header contact button */
+.home-applications { margin: 0 0 28px; }
+.home-applications > h3 {
+  margin: 0 0 12px;
+  color: var(--firjan-blue);
+  font-size: 1.1rem;
+}
+.application-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: 12px;
+}
+.home-entry { position: relative; }
+.home-entry-title, a.application-card { text-decoration: none; color: inherit; }
+.home-entry-title::after { content: ""; position: absolute; inset: 0; }
+.home-entry-actions button { position: relative; z-index: 1; }
+.home-entry:focus-within { outline: 2px solid var(--firjan-blue); }
+.application-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 76px;
+  padding: 16px;
+  border: 1px solid var(--firjan-line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--firjan-blue-deep);
+  text-align: left;
+  font: 600 14px/1.4 "Inter", system-ui, sans-serif;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(15, 47, 110, .06);
+}
+.application-card:hover, .application-card:focus-visible {
+  border-color: var(--firjan-orange);
+  box-shadow: 0 8px 22px rgba(15, 47, 110, .12);
+}
+.feedback-overlay.lead-contact-overlay .panel { border-left-color: var(--firjan-orange); }
+.feedback-overlay.lead-contact-overlay .panel-top {
+  position: relative;
+  justify-content: center;
+  padding: 0 38px 14px;
+  border-bottom: 0;
+}
+.feedback-overlay.lead-contact-overlay .panel-top h2 {
+  margin: 0;
+  color: var(--firjan-blue);
+  text-align: center;
+}
+.feedback-overlay.lead-contact-overlay .panel-top h2::after,
+.lead-contact + .lead-contact::before {
+  content: "";
+  display: block;
+  width: 40px;
+  height: 4px;
+  margin: 14px auto 0;
+  border-radius: 2px;
+  background: var(--firjan-orange);
+}
+.application-card, .home-entry, .home-entry:hover {
+  border-left: 4px solid var(--firjan-orange);
+}
+.feedback-overlay.lead-contact-overlay .panel-top .panel-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+.lead-contact {
+  position: relative;
+  margin-top: 18px;
+  padding-bottom: 18px;
+  border-bottom: 0;
+}
+.lead-contact h3 { color: var(--firjan-blue); }
+.map-qr {
+  margin: auto;
+  width: min(24rem, 92vw);
+  max-height: 90vh;
+  padding: 20px;
+  border: 0;
+  border-radius: 12px;
+  text-align: center;
+  color: var(--ink);
+}
+.map-qr::backdrop { background: rgb(0 0 0 / 55%); }
+.map-qr img { display: block; max-width: 100%; height: auto; margin: 8px auto; }
+.map-qr form { margin-top: 14px; }
+.lead-contact > p {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+.lead-contact + .lead-contact::before {
+  margin: 0 auto 18px;
+}
+.lead-contact dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  font-weight: 700;
+}
+.lead-contact dt svg {
+  width: 19px;
+  height: 19px;
+}
+.lead-contact dd {
+  margin: 4px 0 12px;
+  overflow-wrap: anywhere;
+}
+.topbar-inner { display: flex; }
+.header-actions {
+  position: absolute;
+  right: 24px;
+  top: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  max-width: 11rem;
+}
+#lead-contact-button {
+  width: 11rem;
+  padding: 5px 8px;
+  border: 2px solid var(--firjan-orange);
+  border-radius: 12px;
+  background: var(--firjan-blue);
+  color: #fff;
+  font: 600 .75rem/1.25 "Inter", system-ui, sans-serif;
+  white-space: normal;
+  cursor: pointer;
+}
+#lead-contact-button:hover { background: var(--firjan-blue-deep); }
+.header-actions .crumbs { position: static; }
+@media (max-width: 700px) {
+  .topbar-inner { padding-right: 16px; padding-left: 72px; }
+  .header-actions { position: static; max-width: 100%; align-items: center; margin: 0 auto; }
+  #lead-contact-button { width: min(100%, 11rem); }
+}

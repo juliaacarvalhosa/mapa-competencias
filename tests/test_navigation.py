@@ -164,3 +164,16 @@ class PilotNavigationTests(TestCase):
         for field in ('created_by', 'updated_by'):
             with self.assertRaises(IntegrityError), transaction.atomic():
                 MapCard.objects.filter(pk=card.pk).update(**{field: ''})
+
+    def test_lead_contact_channels_persist_with_author(self):
+        key = 'diretorio/chefias/0'
+        payload = {'password': 'test-password', 'editor_name': 'Editora', 'action': 'update',
+                   'item_type': 'contato', 'item_key': key,
+                   'fields': {'nome': 'Pessoa teste', 'telefone': '2122223333', 'whatsapp': '21999998888',
+                              'email': 'pessoa@example.com'}}
+        with self.settings(MAP_EDIT_PASSWORD='test-password'):
+            response = self.client.post('/mapa/cards/edit/', payload, content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        data = self.client.get('/').context['pilot_data']
+        self.assertEqual(data['contacts'][key]['whatsapp'], '21999998888')
+        self.assertEqual(data['cardMeta']['contato:' + key]['history'][-1]['name'], 'Editora')

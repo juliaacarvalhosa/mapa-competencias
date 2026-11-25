@@ -10,6 +10,9 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   var overlay = document.getElementById('overlay');
   var panel = document.getElementById('panel');
   var header = document.querySelector('.topbar');
+  document.getElementById('qr-open').addEventListener('click', function(){
+    document.getElementById('map-qr').showModal();
+  });
   var lastFocusedElement = null;
   new ResizeObserver(function(){
     document.documentElement.style.setProperty('--header-height', header.getBoundingClientRect().height+'px');
@@ -23,6 +26,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     E: {label:"Circularidade", desc:"Desdobramento de competências reais já mapeadas em A3, A4, A7, A11 e B3 (tratamento de efluentes, descarte de água produzida, remediação de áreas contaminadas e gestão digital de resíduos)."}
   };
   var AREA_LETTERS = ['A','B','C','D','E'];
+  var entryTitles = {material:'Matérias-primas', competence:'Competências técnicas', sector:'Setores de aplicação'};
 
   var TEAM_COLOR = DATA.teamColors || {};
   function cardMeta(type, key){ return (DATA.cardMeta || {})[type+':'+key] || null; }
@@ -56,6 +60,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   function render(){
     document.body.classList.toggle('competence-page', state.view === 'competencia');
     if(state.view === 'home') renderHome();
+    else if(state.view === 'catalog') renderCatalog(state.kind);
     else if(state.view === 'section') renderSection(state.letter);
     else if(state.view === 'item') renderItem();
     else if(state.view === 'rdcategory') renderRdCategory();
@@ -76,12 +81,25 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     button.addEventListener('click', function(){ openEditPanel('competencia', state.code, false); });
   }
 
-  function updateTopMenu(){
-    var menuItems = {
+  function entryItems(){
+    return {
       material: DATA.materialsLeft.map(function(item, index){ return {label:item.nome, kind:'material', index:index}; }),
       competence: AREA_LETTERS.map(function(letter){ return {label:letter+'. '+LETTER_META[letter].label, kind:'competence', letter:letter}; }),
       sector: DATA.sectorsRight.map(function(item, index){ return {label:item.nome, kind:'sector', index:index}; })
     };
+  }
+
+  function renderCatalog(kind){
+    var cards = entryItems()[kind].map(function(item){
+      var query = item.letter ? 'eixo='+item.letter : (kind === 'material' ? 'materia=' : 'setor=')+item.index;
+      return '<a class="application-card" href="?'+query+'"><strong>'+escapeHtml(item.label)+'</strong></a>';
+    });
+    appEl.innerHTML = '<div class="view-head"><a class="back-link" href="'+window.location.pathname+'">&larr; Voltar ao início</a><h2>'+entryTitles[kind]+'</h2></div><div class="application-grid">'+cards.join('')+'</div>';
+    document.title = entryTitles[kind]+' | Firjan SENAI';
+  }
+
+  function updateTopMenu(){
+    var menuItems = entryItems();
     document.querySelectorAll('[data-top-menu-group]').forEach(function(group){
       var kind = group.getAttribute('data-top-menu-group');
       var dropdown = group.querySelector('.top-menu-dropdown');
@@ -119,12 +137,6 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   function updateSidebar(){
     var nav = document.getElementById('sidebar-nav');
     if(!nav.hasChildNodes()){
-      var home = document.createElement('button');
-      home.className = 'sidebar-link';
-      home.textContent = 'Início';
-      home.dataset.home = 'true';
-      home.addEventListener('click', goHome);
-      nav.appendChild(home);
       [
         {title:'Matérias-primas', kind:'material', items:DATA.materialsLeft},
         {title:'Competências', kind:'competence', items:AREA_LETTERS.map(function(letter){ return {nome:letter+'. '+LETTER_META[letter].label, letter:letter}; })},
@@ -184,8 +196,6 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
 
   function renderCrumbs(){
     var parts = [];
-    parts.push(state.view==='home' ? '<span class="current">Início</span>' :
-      '<button data-nav="home">Início</button>');
     if(state.view === 'section'){
       parts.push('<span class="sep">/</span>');
       parts.push('<span class="current">'+state.letter+'. '+LETTER_META[state.letter].label+'</span>');
@@ -221,7 +231,8 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       parts.push('<span class="sep">/</span>');
       parts.push('<span class="current">'+state.code+'</span>');
     }
-    crumbsEl.innerHTML = parts.join('');
+    crumbsEl.innerHTML = parts.join('').replace(/^<span class="sep">\/<\/span>/, '');
+    crumbsEl.hidden = !parts.length;
     crumbsEl.querySelectorAll('button[data-nav]').forEach(function(b){
       b.addEventListener('click', function(){
         var nav = b.getAttribute('data-nav');
@@ -262,9 +273,11 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   // Replaces the original sparse landing view with three clear entry points.
   function renderHome(){
     var html = '';
-    html += '<div class="view-head home-hero"><span class="panel-eyebrow">Mapa de compet&ecirc;ncias &middot; Firjan SENAI SESI</span><h2>Encontre a compet&ecirc;ncia certa para o seu desafio</h2>' +
-      '<p>Explore o mapa por mat&eacute;ria-prima, compet&ecirc;ncia t&eacute;cnica ou setor de aplica&ccedil;&atilde;o. Em cada caminho, voc&ecirc; encontra conex&otilde;es de P&amp;D, exemplos de produtos e a equipe relacionada.</p></div>';
-    html += '<div class="feedback-callout"><div><span class="feedback-callout-label">Ajude a melhorar o mapa</span><strong>Encontrou algo que falta, sobra ou precisa ser corrigido?</strong><span>Opine livremente ou edite os cards com a palavra de seguran&ccedil;a.</span></div><div class="feedback-callout-actions"><button class="feedback-callout-button" id="btnHomeFeedback" type="button">Dar opini&atilde;o agora <span aria-hidden="true">&rarr;</span></button><button class="feedback-view-button" id="btnViewFeedback" type="button">Ver opini&otilde;es salvas</button><button class="feedback-view-button" id="btnAddCard" type="button">Adicionar card</button></div></div>';
+    html += '<div class="view-head home-hero"><h2>Mapa de competências</h2><p>Encontre a competência certa para o seu desafio</p></div>';
+    html += '<section class="home-applications" aria-label="Aplicações"><h3>Aplicações</h3><div class="application-grid">'+
+      DATA.sectorsRight.map(function(sector, index){
+        return '<button type="button" class="application-card" data-home-sector="'+index+'"><strong>'+escapeHtml(sector.nome)+'</strong></button>';
+      }).join('')+'</div></section>';
     html += '<div class="home-start"><div><span class="home-start-kicker">Comece por onde fizer mais sentido</span><h3>Tr&ecirc;s portas de entrada para o mesmo mapa</h3></div><span class="home-start-hint">Voc&ecirc; pode mudar de caminho a qualquer momento.</span></div>';
     html += '<div class="home-entry-grid">';
     html += homeEntryHtml('material', 'Mat&eacute;rias-primas', 'Parta do insumo e descubra rotas de transforma&ccedil;&atilde;o, compet&ecirc;ncias e aplica&ccedil;&otilde;es.', DATA.materialsLeft.length, 'insumos dispon&iacute;veis');
@@ -272,15 +285,12 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     html += homeEntryHtml('sector', 'Setores de aplica&ccedil;&atilde;o', 'Encontre caminhos de P&amp;D conectados a mercados, produtos e desafios reais.', DATA.sectorsRight.length, 'setores mapeados');
     html += '</div>';
     html += '<div class="home-secondary"><div class="processos-note"><strong>Como navegar:</strong> abra uma entrada, selecione um card e use os links de conex&otilde;es para atravessar o mapa sem perder o contexto.</div>';
-    html += '</div><section class="home-contacts"><h3>Contatos da gerência e da coordenação</h3><div class="contact-grid">'+homeContacts().map(contactCardHtml).join('')+'</div></section>';
+    html += '</div>';
     html += '<div class="footnote">Piloto de navega&ccedil;&atilde;o constru&iacute;do a partir dos materiais de refer&ecirc;ncia do projeto. Campos ainda n&atilde;o preenchidos aparecem como pendentes.</div>';
+    html += '<footer class="feedback-callout"><div><span class="feedback-callout-label">Ajude a melhorar o mapa</span><strong>Encontrou algo que falta, sobra ou precisa ser corrigido?</strong><span>Opine livremente ou edite os cards com a palavra de seguran&ccedil;a.</span></div><div class="feedback-callout-actions"><button class="feedback-callout-button" id="btnHomeFeedback" type="button">Dar opini&atilde;o agora <span aria-hidden="true">&rarr;</span></button><button class="feedback-view-button" id="btnViewFeedback" type="button">Ver opini&otilde;es salvas</button><button class="feedback-view-button" id="btnAddCard" type="button">Adicionar card</button></div></footer>';
     appEl.innerHTML = html;
-    appEl.querySelectorAll('[data-home-entry]').forEach(function(button){
-      button.addEventListener('click', function(){
-        var kind = button.getAttribute('data-home-entry');
-        if(kind === 'competence') goSection('A');
-        else goItem(kind, 0);
-      });
+    appEl.querySelectorAll('[data-home-sector]').forEach(function(button){
+      button.addEventListener('click', function(){ goItem('sector', Number(button.dataset.homeSector)); });
     });
     appEl.querySelectorAll('[data-home-edit]').forEach(function(button){
       button.addEventListener('click', function(event){ event.stopPropagation(); openCardChooser(button.getAttribute('data-home-edit')); });
@@ -298,9 +308,9 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
 
   function homeEntryHtml(kind, title, description, count, countLabel){
     var icon = kind === 'material' ? '01' : (kind === 'competence' ? '02' : '03');
-    return '<div class="home-entry-wrap"><div class="home-entry" data-home-entry="'+kind+'">' +
+    return '<div class="home-entry-wrap"><div class="home-entry">' +
       '<span class="home-entry-top"><span class="home-entry-index">'+icon+'</span><span class="home-entry-arrow" aria-hidden="true">&#8599;</span></span>' +
-      '<span class="home-entry-title">'+title+'</span><span class="home-entry-description">'+description+'</span>' +
+      '<a class="home-entry-title" href="?entrada='+kind+'">'+title+'</a><span class="home-entry-description">'+description+'</span>' +
       '<span class="home-entry-meta"><strong>'+count+'</strong> '+countLabel+'</span><div class="home-entry-actions"><button class="home-entry-edit" type="button" data-home-edit="'+kind+'">Editar card</button><button class="home-entry-add" type="button" data-home-add="'+kind+'">Adicionar card</button></div></div></div>';
   }
 
@@ -519,6 +529,8 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
 
   function openEditPanel(itemType, itemKey, adding, contact){
     var editingContact = itemType === 'contato';
+    var leadContact = editingContact && itemKey.startsWith('diretorio/chefias/');
+    var fieldLabels = leadContact ? Object.assign({}, contactLabels, {whatsapp:'WhatsApp (número com DDD)'}) : contactLabels;
     var chooseType = adding && !editingContact;
     var meta = cardMeta(itemType, itemKey);
     var history = orderedHistory(meta);
@@ -539,7 +551,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     html += '<p class="plain-p">Informe a palavra de seguran&ccedil;a para autorizar esta altera&ccedil;&atilde;o.</p>';
     html += '<form id="card-edit-form" class="main-feedback-form"><label>Seu nome <span class="required-label">(obrigat&oacute;rio)</span><input name="editor_name" maxlength="120" required placeholder="Quem est&aacute; fazendo esta altera&ccedil;&atilde;o?"></label><label>Palavra de seguran&ccedil;a<input name="password" type="password" required autocomplete="current-password"></label>';
     if(chooseType) html += '<div class="card-type-picker"><span class="card-type-picker-label">Tipo de card</span><div class="card-type-grid"><button type="button" class="card-type-option is-selected" data-card-type="competencia"><span class="card-type-icon">A</span><span><strong>Compet&ecirc;ncia</strong><small>Uma capacidade t&eacute;cnica do mapa</small></span></button><button type="button" class="card-type-option" data-card-type="material"><span class="card-type-icon">M</span><span><strong>Mat&eacute;ria-prima</strong><small>Um insumo ou recurso de entrada</small></span></button><button type="button" class="card-type-option" data-card-type="setor"><span class="card-type-icon">S</span><span><strong>Setor</strong><small>Uma aplica&ccedil;&atilde;o ou mercado</small></span></button></div><input type="hidden" name="item_type" value="competencia"></div>';
-    html += '<div class="version-selection-note" data-version-selection></div><div class="edit-fields" data-edit-fields></div>'+historyHtml(itemType, itemKey)+'<p class="feedback-status" role="status"></p><button class="btn btn-primary" type="submit">Salvar altera&ccedil;&atilde;o</button>'+ (editingContact && !adding ? '<button type="submit" class="btn btn-ghost" data-delete-contact formnovalidate>Excluir contato deste card</button>' : '')+'</form>';
+    html += '<div class="version-selection-note" data-version-selection></div><div class="edit-fields" data-edit-fields></div>'+historyHtml(itemType, itemKey)+'<p class="feedback-status" role="status"></p><button class="btn btn-primary" type="submit">Salvar altera&ccedil;&atilde;o</button>'+ (editingContact && !adding && !leadContact ? '<button type="submit" class="btn btn-ghost" data-delete-contact formnovalidate>Excluir contato deste card</button>' : '')+'</form>';
     openPanel(html); overlay.classList.add('feedback-overlay');
     var form = panel.querySelector('#card-edit-form'), fields = panel.querySelector('[data-edit-fields]');
     var emptyCard = {title:'',bullets:[],teams:[],nome:'',explicacao:'',produtos:[]};
@@ -552,7 +564,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       // The first version of a user-created card is its initial content, not
       // an edit from an empty card. Only later versions can have changed fields.
       if(index < 0 || !history[index] || history[index].action === 'original' || history[index].action === 'added') return [];
-      var fieldNames = editingContact ? Object.keys(contactLabels) : type === 'competencia' ? ['title','bullets','teams'] : ['nome','explicacao','produtos'];
+      var fieldNames = editingContact ? Object.keys(fieldLabels) : type === 'competencia' ? ['title','bullets','teams'] : ['nome','explicacao','produtos'];
       var before = index > 0 ? (history[index - 1].data || {}) : {};
       var after = history[index].data || {};
       return fieldNames.filter(function(name){ return normalized(before[name]) !== normalized(after[name]); });
@@ -578,8 +590,8 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     }
     function renderFields(type){
       var current = adding ? emptyCard : versionData(selectedVersionIndex, type);
-      if(editingContact) fields.innerHTML = Object.keys(contactLabels).map(function(key){
-        return '<label data-version-field="'+key+'">'+contactLabels[key]+' <span data-change-marker hidden>Alterado</span><input name="'+key+'" maxlength="255" type="'+(key === 'email' ? 'email' : key === 'telefone' ? 'tel' : 'text')+'" '+(key === 'nome' ? 'required' : '')+' value="'+value(current[key])+'"></label>';
+      if(editingContact) fields.innerHTML = Object.keys(fieldLabels).map(function(key){
+        return '<label data-version-field="'+key+'">'+fieldLabels[key]+' <span data-change-marker hidden>Alterado</span><input name="'+key+'" maxlength="255" type="'+(key === 'email' ? 'email' : (key === 'telefone' || key === 'whatsapp') ? 'tel' : 'text')+'" '+(key === 'nome' ? 'required' : '')+' value="'+value(current[key])+'"></label>';
       }).join('');
       else if(type === 'competencia') fields.innerHTML = '<label>Eixo do mapa<select name="letter" required><option value="A" '+(value(adding ? 'A' : itemKey[0])==='A'?'selected':'')+'>A &mdash; Tecnologias e Processos</option><option value="B" '+(value(adding ? 'A' : itemKey[0])==='B'?'selected':'')+'>B &mdash; Conserva&ccedil;&atilde;o e Monitoramento</option><option value="C" '+(value(adding ? 'A' : itemKey[0])==='C'?'selected':'')+'>C &mdash; Inova&ccedil;&atilde;o em Sa&uacute;de</option><option value="D" '+(value(adding ? 'A' : itemKey[0])==='D'?'selected':'')+'>D &mdash; Biotecnologia</option><option value="E" '+(value(adding ? 'A' : itemKey[0])==='E'?'selected':'')+'>E &mdash; Circularidade</option></select></label><label>C&oacute;digo<input name="code" maxlength="12" required placeholder="Ex.: C1" value="'+value(adding ? '' : itemKey)+'"></label><label data-version-field="title">T&iacute;tulo <span data-change-marker hidden>Alterado</span><input name="title" maxlength="255" required value="'+value(current.title)+'"></label><label data-version-field="bullets">Compet&ecirc;ncias detalhadas <span data-change-marker hidden>Alterado</span><textarea name="bullets" rows="7" placeholder="Uma por linha">'+value((current.bullets||[]).join('\n'))+'</textarea></label><label data-version-field="teams">Equipes respons&aacute;veis <span data-change-marker hidden>Alterado</span><textarea name="teams" rows="3" placeholder="Uma por linha">'+value((current.teams||[]).join('\n'))+'</textarea></label>';
       else fields.innerHTML = '<label data-version-field="nome">Nome <span data-change-marker hidden>Alterado</span><input name="nome" maxlength="255" required value="'+value(current.nome)+'"></label><label data-version-field="explicacao">Explica&ccedil;&atilde;o <span data-change-marker hidden>Alterado</span><textarea name="explicacao" rows="4">'+value(current.explicacao)+'</textarea></label><label data-version-field="produtos">Produtos ou aplica&ccedil;&otilde;es <span data-change-marker hidden>Alterado</span><textarea name="produtos" rows="5" placeholder="Um por linha">'+value((current.produtos||[]).join('\n'))+'</textarea></label>';
@@ -632,7 +644,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     var history = orderedHistory(meta);
     if(!history.length) return '';
     var labels = {title:'t&iacute;tulo', bullets:'compet&ecirc;ncias detalhadas', teams:'equipes', nome:'nome', explicacao:'explica&ccedil;&atilde;o', produtos:'produtos/aplica&ccedil;&otilde;es'};
-    if(type === 'contato') labels = contactLabels;
+    if(type === 'contato') labels = Object.assign({}, contactLabels, {whatsapp:'WhatsApp'});
     function changedAt(index){
       if(index === 0 || history[index].action === 'original') return '';
       var before = history[index - 1].data || {}, after = history[index].data || {};
@@ -752,19 +764,39 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     return (DATA.leadResearchers || []).concat(DATA.seniorResearchers || []);
   }
 
+  function leadershipPeople(){
+    return (DATA.leadResearchers || []).concat(DATA.managementContacts || []);
+  }
+
   function homeContacts(){
     return (DATA.leadResearchers || []).filter(function(p){
       return p.nome === 'Antonio Augusto Fidalgo Neto' || /coordenador/i.test(p.cargo || '');
-    });
+    }).concat(DATA.managementContacts || []);
   }
 
-  function contactCardHtml(p){
-    var names = p.nome.trim().split(/\s+/);
-    var initials = names[0][0] + (names.length > 1 ? names[names.length - 1][0] : '');
-    var role = (p.cargo || '').split(/\s+[·—]\s+/)[0];
-    return '<button type="button" class="inline-contact" data-contact="'+escapeHtml(p.nome)+'" aria-haspopup="dialog">'+
-      '<span class="contact-person"><span class="contact-initials" aria-hidden="true">'+escapeHtml(initials)+'</span>'+
-      '<span><strong>'+escapeHtml(p.nome)+'</strong><span class="contact-role">'+escapeHtml(role)+'</span></span></span></button>';
+  document.getElementById('lead-contact-button').addEventListener('click', function(){
+    var people = leadershipPeople();
+    var html = '<div class="panel-top"><h2>Gerência e Pesquisadores-Chefes</h2><button type="button" class="panel-close" data-close aria-label="Fechar">&times;</button></div>';
+    html += people.map(function(source, index){
+      if(source.situacao && source.situacao !== 'Ativo') return '';
+      var key = 'diretorio/chefias/'+index;
+      var person = (DATA.contacts || {})[key] || source;
+      var whatsapp = (person.whatsapp || '').replace(/[^0-9]/g, '');
+      if(whatsapp.length === 10 || whatsapp.length === 11) whatsapp = '55'+whatsapp;
+      var email = (person.email || '').trim();
+      var roleHtml = contactRoleLines(person).map(escapeHtml).join('<br>');
+      return '<section class="lead-contact"><h3>'+escapeHtml(person.nome)+'</h3><p>'+roleHtml+'</p><dl>'+
+        '<dt><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#168044" stroke-width="1.8" d="M4.1 17.2a9.5 9.5 0 1 1 3 3L2.5 21.5z"/><path fill="#168044" d="M8 6.8c-.6 0-1.4.9-1.4 2.2 0 2.9 4.9 7.9 8.3 8.1 1.3.1 2.7-.7 2.8-2.1l-3-1.5-1.1 1.3c-1.7-.6-3.3-2-4.1-3.6l1-1.3-1.3-3z"/></svg>WhatsApp</dt><dd>'+(whatsapp ? '<a href="https://wa.me/'+whatsapp+'" target="_blank" rel="noopener noreferrer">Abrir conversa</a>' : 'Não informado')+'</dd>'+
+        '<dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="m3.5 6 8.5 7 8.5-7"/></svg>E-mail</dt><dd>'+(email ? '<a href="mailto:'+escapeHtml(email)+'">'+escapeHtml(email)+'</a>' : 'Não informado')+'</dd></dl><button class="card-edit-button" type="button" data-edit-contact="'+key+'">Editar contato</button></section>';
+    }).join('');
+    openPanel(html);
+    overlay.classList.add('feedback-overlay', 'lead-contact-overlay');
+    
+    panel.querySelector('[data-close]').addEventListener('click', closePanel);
+  });
+
+  function contactRoleLines(person){
+    return (person.cargo || '').split(/\s*·\s*/).filter(Boolean);
   }
 
   document.addEventListener('click', function(event){
@@ -787,14 +819,15 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     var editContact = event.target.closest('[data-edit-contact]');
     if(editContact){
       var contactKey = editContact.dataset.editContact;
-      var current = (DATA.contacts || {})[contactKey] || directoryPeople()[Number(contactKey.split('/')[2])];
+      var directory = contactKey.startsWith('diretorio/chefias/') ? leadershipPeople() : directoryPeople();
+      var current = (DATA.contacts || {})[contactKey] || directory[Number(contactKey.split('/')[2])];
       openEditPanel('contato', contactKey, false, current);
       return;
     }
     var card = event.target.closest('[data-contact]');
     if(!card) return;
     var key = card.dataset.contactKey;
-    var person = (DATA.contacts || {})[key] || directoryPeople().find(function(p){
+    var person = (DATA.contacts || {})[key] || (key && key.startsWith('diretorio/chefias/') && leadershipPeople()[Number(key.split('/')[2])]) || directoryPeople().find(function(p){
       return p.nome === card.dataset.contact;
     });
     if(!person) return;
@@ -802,7 +835,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     dialog.className = 'contact-dialog';
     dialog.setAttribute('aria-labelledby', 'contact-dialog-name');
     var email = (person.email || '').trim();
-    var attributes = (person.cargo || '').split(/\s*[·—]\s*/).filter(Boolean);
+    var attributes = contactRoleLines(person);
     if(person.setor && !attributes.includes(person.setor)) attributes.push(person.setor);
     dialog.innerHTML = '<button type="button" class="contact-close" aria-label="Fechar">×</button>'+
       '<h2 id="contact-dialog-name">'+escapeHtml(person.nome)+'</h2>'+
@@ -1200,6 +1233,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       '<button class="panel-close" data-close>&times;</button></div>';
     html += '<p class="plain-p">'+s.blurb+'</p>';
     openPanel(html);
+    overlay.classList.add('feedback-overlay');
     panel.querySelector('[data-close]').addEventListener('click', closePanel);
   }
 
@@ -1216,6 +1250,8 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     document.title = requestedCode+' — '+subTitleByCode(requestedCode)+' | Firjan SENAI';
   } else if(AREA_LETTERS.indexOf(params.get('eixo')) !== -1){
     state.view = 'section'; state.letter = params.get('eixo');
+  } else if(Object.prototype.hasOwnProperty.call(entryTitles, params.get('entrada'))){
+    state.view = 'catalog'; state.kind = params.get('entrada');
   } else if(params.has('setor') && /^\d+$/.test(params.get('setor')) && DATA.sectorsRight[Number(params.get('setor'))]){
     state.view = 'item'; state.itemKind = 'sector'; state.itemIndex = Number(params.get('setor')); state.path = [];
   } else if(params.has('materia') && /^\d+$/.test(params.get('materia')) && DATA.materialsLeft[Number(params.get('materia'))]){
