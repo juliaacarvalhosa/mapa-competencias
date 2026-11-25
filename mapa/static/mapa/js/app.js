@@ -1209,10 +1209,11 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
           ((letter === 'A' && (code === 'A3' || code === 'A13')) || (letter === 'B' && code === 'B3') ? b : null));
       var summary = (DATA.competenceSummaries || {})[b] || b;
       var keepOriginalTitle = (letter === 'A' && (code === 'A3' || code === 'A13')) || (letter === 'B' && code === 'B3');
-      var subtitle = keepOriginalTitle ? summary : (cardTitle ? b : summary);
+      var description = (sub.bulletDescriptions || {})[String(bulletIndex)] || '';
+      var subtitle = description || (keepOriginalTitle ? summary : (cardTitle ? b : summary));
       return '<li class="competence-pair"><article class="competence-row"><div class="competence-description">'+
         '<h3>'+escapeHtml(cardTitle || summary)+'</h3>'+
-        (((cardTitle && !keepOriginalTitle) || summary !== b) ? '<p class="competence-subtitle">'+escapeHtml(subtitle)+'</p>' : '')+
+        ((description || (cardTitle && !keepOriginalTitle) || summary !== b) ? '<p class="competence-subtitle">'+escapeHtml(subtitle)+'</p>' : '')+
         '</div><button type="button" class="card-edit-button bullet-edit-button" data-bullet-edit="'+escapeHtml(b)+'" data-bullet-index="'+bulletIndex+'">Editar card</button></article>'+competenceContactsHtml(code, bulletIndex)+'</li>';
     }).join('');
     var relatedA3Cards = relatedCompetences.filter(function(item){ return item.displayTitle; }).map(function(item){
@@ -1274,7 +1275,12 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       });
     });
     appEl.querySelectorAll('[data-bullet-edit]').forEach(function(button){
-      button.addEventListener('click', function(){ openBulletPanel(letter, code, button.getAttribute('data-bullet-edit'), button.getAttribute('data-bullet-index'), false); });
+      button.addEventListener('click', function(){
+        var bulletIndex = button.getAttribute('data-bullet-index');
+        var bullet = button.getAttribute('data-bullet-edit');
+        var description = (sub.bulletDescriptions || {})[String(bulletIndex)] || (DATA.competenceSummaries || {})[bullet] || bullet;
+        openBulletPanel(letter, code, bullet, bulletIndex, false, description);
+      });
     });
     document.getElementById('btnCompAddBullet').addEventListener('click', function(){
       openBulletPanel(letter, code, '', '', true);
@@ -1285,15 +1291,15 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
   }
 
 
-  function openBulletPanel(letter, code, bullet, bulletIndex, adding){
+  function openBulletPanel(letter, code, bullet, bulletIndex, adding, description){
     var html = '<div class="panel-top"><div><span class="panel-eyebrow">Edi&ccedil;&atilde;o protegida</span><h3>'+(adding?'Adicionar card':'Editar card')+'</h3></div><button class="panel-close" data-close aria-label="Fechar">&times;</button></div>';
-    html += '<p class="plain-p">Este card pertence &agrave; compet&ecirc;ncia '+escapeHtml(code)+'.</p><form id="bullet-edit-form" class="main-feedback-form"><label>Seu nome <span class="required-label">(obrigat&oacute;rio)</span><input name="editor_name" maxlength="120" required placeholder="Quem est&aacute; fazendo esta altera&ccedil;&atilde;o?"></label><label>Palavra de seguran&ccedil;a<input name="password" type="password" required></label><label>Texto do card<textarea name="bullet" rows="5" required>'+escapeHtml(bullet)+'</textarea></label><p class="feedback-status" role="status"></p><button class="btn btn-primary" type="submit">Salvar card</button></form>';
+    html += '<p class="plain-p">Este card pertence &agrave; compet&ecirc;ncia '+escapeHtml(code)+'.</p><form id="bullet-edit-form" class="main-feedback-form"><label>Seu nome <span class="required-label">(obrigat&oacute;rio)</span><input name="editor_name" maxlength="120" required placeholder="Quem est&aacute; fazendo esta altera&ccedil;&atilde;o?"></label><label>Palavra de seguran&ccedil;a<input name="password" type="password" required></label><label>Texto do card<textarea name="bullet" rows="5" required>'+escapeHtml(bullet)+'</textarea></label>'+(adding?'':'<label>Descri&ccedil;&atilde;o do card<textarea name="description" rows="4">'+escapeHtml(description || '')+'</textarea></label>')+'<p class="feedback-status" role="status"></p><button class="btn btn-primary" type="submit">Salvar card</button></form>';
     openPanel(html); overlay.classList.add('feedback-overlay');
     panel.querySelector('[data-close]').addEventListener('click', closePanel);
     var form = panel.querySelector('#bullet-edit-form');
     form.addEventListener('submit', function(event){
       event.preventDefault(); var status=form.querySelector('.feedback-status'); status.textContent='Salvando...';
-      fetch('/mapa/cards/edit/', {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}, body:JSON.stringify({editor_name:form.elements.editor_name.value.trim(), password:form.elements.password.value, action:adding?'add_bullet':'update_bullet', item_type:'competencia', item_key:code, fields:{bullet:form.elements.bullet.value, old_bullet:bullet, bullet_index:bulletIndex}})})
+      fetch('/mapa/cards/edit/', {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}, body:JSON.stringify({editor_name:form.elements.editor_name.value.trim(), password:form.elements.password.value, action:adding?'add_bullet':'update_bullet', item_type:'competencia', item_key:code, fields:{bullet:form.elements.bullet.value, description:adding?'':form.elements.description.value, old_bullet:bullet, bullet_index:bulletIndex}})})
         .then(function(response){return response.json().then(function(body){if(!response.ok) throw new Error(body.error||'N&atilde;o foi poss&iacute;vel salvar.');return body;});})
         .then(function(){status.textContent='Card salvo. Atualizando...';window.setTimeout(refreshCurrentMapView,300);})
         .catch(function(error){status.textContent=error.message;});
