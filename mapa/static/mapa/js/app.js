@@ -326,7 +326,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     html += '<div class="section-edit-actions"><button class="btn btn-primary" id="btnAddCompetence" type="button">Adicionar nova compet&ecirc;ncia</button></div>';
     html += '</div>';
 
-    html += competenceContactsHtml(letter, sec.title, 'eixo');
+    html += competenceContactsHtml(letter, 'eixo');
 
     if(letter === 'A'){
       html += '<div class="section-columns">';
@@ -448,7 +448,7 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       '<span class="sub-title">'+sub.title+'</span>' + changeBadge('competencia', code) +
       '<span class="sub-foot">'+dots+'<span class="sub-count">'+sub.bullets.length+' competências</span></span>' +
       '<span class="sub-action">Abrir detalhes <span aria-hidden="true">&rarr;</span></span></button><div class="card-actions"><button type="button" class="sub-feedback" data-card-feedback="'+code+'">Dar opini&atilde;o</button><button type="button" class="card-edit-button" data-edit-type="competencia" data-edit-key="'+code+'">Editar</button></div>'+
-      competenceContactsHtml(code, sub.title, 'subdivisao')+'</div>';
+      competenceContactsHtml(code, 'subdivisao')+'</div>';
   }
 
   // ---------------- PANELS ----------------
@@ -776,10 +776,13 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
 
   document.getElementById('lead-contact-button').addEventListener('click', function(){
     var people = leadershipPeople();
+    var displayOrder = people.slice().sort(function(a, b){
+      return Number(b.email === 'pfurio@firjan.com.br') - Number(a.email === 'pfurio@firjan.com.br');
+    });
     var html = '<div class="panel-top"><h2>Gerência e Pesquisadores-Chefes</h2><button type="button" class="panel-close" data-close aria-label="Fechar">&times;</button></div>';
-    html += people.map(function(source, index){
+    html += displayOrder.map(function(source){
       if(source.situacao && source.situacao !== 'Ativo') return '';
-      var key = 'diretorio/chefias/'+index;
+      var key = 'diretorio/chefias/'+people.indexOf(source);
       var person = (DATA.contacts || {})[key] || source;
       var whatsapp = (person.whatsapp || '').replace(/[^0-9]/g, '');
       if(whatsapp.length === 10 || whatsapp.length === 11) whatsapp = '55'+whatsapp;
@@ -857,49 +860,10 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
     dialog.showModal();
   });
 
-  function contactGroup(p){
-    var text = (p.setor || p.cargo || '').toUpperCase();
-    if(text.indexOf('CIS SO') !== -1) return 'CIS';
-    if(text.indexOf('INTEL TECN') !== -1) return 'Intelig.';
-    if(text.indexOf('DESENV AVANC') !== -1) return 'DAP';
-    if(text.indexOf('ISI BIOTECNOLOGIA') !== -1) return 'Biotec';
-    if(text.indexOf('INOVACAO QUIMICA') !== -1) return 'Química e Tecnologias Aplicadas';
-    return null;
-  }
-
-  // Inferred routing uses the registered department, never an invented personal specialty.
-  // Explicit area associations take priority when the source data supplies them.
-  function contactsForCompetence(code, description){
-    var sub = DATA.competencias[code[0]].subdivisions[code];
-    var text = description.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-    var groups = [];
-    if(/enzim|ferment|genom|genetic|dna|rna|celul|microbio|biolog|biopro|biorrem|biofilm|fago/.test(text)) groups.push('Biotec');
-    if(/catalis|catalit|cromatograf|espectroscop|quimic|sintese|analitic/.test(text)) groups.push('Química e Tecnologias Aplicadas');
-    if(/reator|pirol|gasifica|eletro|plasma|hidrotrat|destila|membrana|filtra|microfluid|processo|piloto/.test(text)) groups.push('DAP');
-    if(/digital|model|simula|dados|inteligencia|econom|mercado|patente|prospect|logistic|sustentabilidade/.test(text)) groups.push('Intelig.');
-    if(/saude|epidem|clinico|paciente|ocupacional/.test(text)) groups.push('CIS');
-    groups = groups.filter(function(g){ return (sub.teams || []).indexOf(g) !== -1; });
-    if(!groups.length) groups = sub.teams || [];
-    return (DATA.leadResearchers || []).concat(DATA.seniorResearchers || []).filter(function(p){
-      if(p.situacao && p.situacao !== 'Ativo') return false;
-      if((p.areas || []).length) return p.areas.indexOf(code) !== -1 || p.areas.indexOf(code[0]) !== -1;
-      return groups.indexOf(contactGroup(p)) !== -1;
-    });
-  }
-
-  function competenceContactsHtml(code, description, index){
+  function competenceContactsHtml(code, index){
     var scope = code + '/' + index;
     var saved = DATA.contacts || {};
-    var people = index === 'eixo' ? directoryPeople().filter(function(person){
-      return (!person.situacao || person.situacao === 'Ativo') && (person.areas || []).includes(code);
-    }) : contactsForCompetence(code, description);
-    var fallback = !people.length;
-    if(fallback) people = homeContacts().filter(function(p){ return p.nome === 'Antonio Augusto Fidalgo Neto'; });
-    var directory = directoryPeople();
-    var keys = people.map(function(person){ return scope+'/'+directory.indexOf(person); });
-    Object.keys(saved).forEach(function(key){
-      if(key.startsWith(scope+'/') && !keys.includes(key)) keys.push(key);
-    });
+    var keys = Object.keys(saved).filter(function(key){ return key.startsWith(scope+'/'); });
     var deletions = [];
     keys.forEach(function(key){
       orderedHistory(cardMeta('contato', key)).forEach(function(version){
@@ -910,20 +874,14 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       deletions.map(function(version){
         return '<li><strong>'+escapeHtml(version.data.nome)+'</strong> · Excluído por '+escapeHtml(version.name)+' em '+escapeHtml(version.created_at)+'</li>';
       }).join('')+'</ul></details>' : '';
-    keys = keys.filter(function(key){ return !saved[key] || !saved[key].deleted; });
-    if(!keys.length) fallback = false;
-    if(fallback && keys.some(function(key){ return saved[key]; })){
-      keys = keys.filter(function(key){ return saved[key]; });
-      fallback = false;
-    }
+    keys = keys.filter(function(key){ return !saved[key].deleted; });
     var pageSize = 3;
     var pageCount = Math.ceil(keys.length / pageSize);
     var pager = pageCount > 1 ? '<div class="contact-pager" data-page="0"><button type="button" data-contact-step="-1" aria-label="Página anterior de contatos" disabled>‹</button>'+
       '<span role="status">1 de '+pageCount+'</span><button type="button" data-contact-step="1" aria-label="Próxima página de contatos">›</button></div>' : '';
     return '<section class="competence-contacts" aria-label="Contatos relacionados"><h4>Contatos relacionados</h4>'+
-      (fallback ? '<p>Para '+(index === 'eixo' ? 'este eixo' : 'esta competência')+', fale com a gerência.</p>' : '')+
       keys.map(function(key, i){
-        var p = saved[key] || directory[Number(key.split('/')[2])];
+        var p = saved[key];
         var meta = cardMeta('contato', key);
         var added = meta && (meta.is_new || orderedHistory(meta).some(function(version){ return version.action === 'added'; }));
         var badge = added ? ' <span class="card-change-badge card-change-new">Adicionado</span>' : '';
@@ -1138,11 +1096,11 @@ window.__DATA__ = JSON.parse(document.getElementById('pilot-data').textContent);
       return '<li class="competence-pair"><article class="competence-row"><div class="competence-description">'+
         '<h3>'+escapeHtml(cardTitle || summary)+'</h3>'+
         (((cardTitle && !keepOriginalTitle) || summary !== b) ? '<p class="competence-subtitle">'+escapeHtml(subtitle)+'</p>' : '')+
-        '</div><button type="button" class="card-edit-button bullet-edit-button" data-bullet-edit="'+escapeHtml(b)+'" data-bullet-index="'+bulletIndex+'">Editar card</button></article>'+competenceContactsHtml(code, b, bulletIndex)+'</li>';
+        '</div><button type="button" class="card-edit-button bullet-edit-button" data-bullet-edit="'+escapeHtml(b)+'" data-bullet-index="'+bulletIndex+'">Editar card</button></article>'+competenceContactsHtml(code, bulletIndex)+'</li>';
     }).join('');
     var relatedA3Cards = relatedCompetences.filter(function(item){ return item.displayTitle; }).map(function(item){
       return '<li class="competence-pair"><article class="competence-row related-source-card" data-related-comp="'+item.codigo+'"><div class="competence-description">'+
-        '<h3>'+escapeHtml(item.displayTitle)+'</h3><p class="competence-subtitle">'+escapeHtml(item.racional)+'</p></div></article>'+competenceContactsHtml(item.codigo, item.displayTitle+' '+item.racional, DATA.competencias[item.codigo[0]].subdivisions[item.codigo].bullets.indexOf(item.displayTitle))+'</li>';
+        '<h3>'+escapeHtml(item.displayTitle)+'</h3><p class="competence-subtitle">'+escapeHtml(item.racional)+'</p></div></article>'+competenceContactsHtml(item.codigo, DATA.competencias[item.codigo[0]].subdivisions[item.codigo].bullets.indexOf(item.displayTitle))+'</li>';
     }).join('');
     if(code === 'B3') bulletsHtml += relatedA3Cards;
     var html = '';

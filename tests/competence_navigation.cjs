@@ -57,7 +57,8 @@ for (const [letter, section] of Object.entries(data.competencias)) {
     page.element('app[data-nav="rdcat2"]').events.click();
     assert.equal(page.window.location.destination, '?eixo=' + letter);
     assert(!html.includes('btnCompResearchers'));
-    assert(html.includes('aria-haspopup="dialog"'));
+    assert(html.includes('data-add-contact='));
+    assert(!html.includes('data-contact-key='));
     count++;
   }
 }
